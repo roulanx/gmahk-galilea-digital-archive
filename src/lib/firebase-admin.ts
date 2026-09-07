@@ -1,6 +1,6 @@
 import { getApps, initializeApp, cert, App } from 'firebase-admin/app';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
-import { getAuth, Auth } from 'firebase-admin/auth';
+import type { Auth } from 'firebase-admin/auth';
 
 let adminApp: App | null = null;
 
@@ -47,10 +47,16 @@ export function getAdminFirestore(): Firestore | null {
   return null;
 }
 
-export function getAdminAuth(): Auth | null {
+export async function getAdminAuth(): Promise<Auth | null> {
   const app = getFirebaseAdmin();
   if (app) {
-    return getAuth(app);
+    try {
+      const { getAuth } = await import('firebase-admin/auth');
+      return getAuth(app);
+    } catch (err) {
+      console.warn('Failed to load firebase-admin/auth module:', err);
+      return null;
+    }
   }
   return null;
 }

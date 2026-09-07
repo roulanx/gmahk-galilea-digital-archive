@@ -34,7 +34,7 @@ export async function authenticateRequest(req: NextRequest): Promise<AuthSession
   const token = authHeader.split('Bearer ')[1]?.trim();
   if (!token) return null;
 
-  const adminAuth = getAdminAuth();
+  const adminAuth = await getAdminAuth();
   if (!adminAuth) {
     // Fallback if Firebase Admin credentials are not yet configured in environment
     return {
