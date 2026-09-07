@@ -4,11 +4,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import {
   ShieldAlert,
-  Layers,
-  Activity,
   RotateCw,
-  Terminal,
-  Settings,
   Plus,
   FolderSync,
 } from 'lucide-react';
@@ -170,95 +166,109 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] text-stone-900 pb-24 font-sans">
+    <div className="min-h-screen bg-white text-stone-900 selection:bg-[#4A7729] selection:text-white pb-32">
       {/* Admin Header */}
-      <div className="border-b border-stone-200 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="border-b border-[#EEEEEC] bg-white">
+        <div className="max-w-6xl mx-auto px-6 sm:px-8 py-10">
+          <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-6">
             <div>
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-stone-500 mb-1">
-                <ShieldAlert className="w-4 h-4 text-[#4A7729]" />
-                Pusat Kontrol Administrator
-              </div>
-              <h1 className="text-2xl font-bold text-stone-900">Admin</h1>
+              <span className="text-xs font-semibold tracking-widest text-[#4A7729] uppercase">
+                Panel Administrator
+              </span>
+              <h1 className="text-3xl sm:text-4xl font-light tracking-tight text-stone-950 mt-1">
+                Administrasi Sistem
+              </h1>
             </div>
 
             {/* Quick Automation Trigger */}
             <button
               onClick={handleTriggerAutomation}
               disabled={runningAutomation}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#4A7729] hover:bg-[#3D6422] text-white text-sm font-medium transition-all shadow-sm self-start sm:self-auto disabled:opacity-70"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-stone-950 hover:bg-stone-800 text-white text-xs font-medium transition-all shadow-sm self-start sm:self-auto disabled:opacity-50 cursor-pointer"
             >
-              <RotateCw className={`w-4 h-4 ${runningAutomation ? 'animate-spin' : ''}`} />
+              <RotateCw className={`w-3.5 h-3.5 ${runningAutomation ? 'animate-spin' : ''}`} />
               Jalankan Otomasi
             </button>
           </div>
 
-          {/* Navigation Tabs */}
-          <div className="mt-6 flex items-center gap-1 overflow-x-auto pb-2">
-            <div className="flex p-1 bg-stone-100 rounded-lg">
-              {[
-                { key: 'dashboard', label: 'Dashboard', icon: Layers },
-                { key: 'activities', label: 'Kegiatan', icon: Activity },
-                { key: 'automation', label: 'Otomasi', icon: FolderSync },
-                { key: 'logs', label: 'Log Audit', icon: Terminal },
-                { key: 'settings', label: 'Pengaturan', icon: Settings },
-              ].map((tab) => {
-                const Icon = tab.icon;
-                const isActive = activeTab === tab.key;
-                return (
-                  <button
-                    key={tab.key}
-                    onClick={() => setActiveTab(tab.key as AdminTab)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all shrink-0 ${
-                      isActive
-                        ? 'bg-[#4A7729] text-white shadow-sm'
-                        : 'text-stone-500 hover:text-stone-700 hover:bg-stone-200/50'
-                    }`}
-                  >
-                    <Icon className="w-4 h-4" />
-                    {tab.label}
-                  </button>
-                );
-              })}
-            </div>
+          {/* Navigation Tabs - Minimalist Hairline */}
+          <div className="mt-8 flex items-center gap-6 overflow-x-auto pb-1 text-xs">
+            {[
+              { key: 'dashboard', label: 'Dashboard' },
+              { key: 'activities', label: 'Kegiatan Khusus' },
+              { key: 'automation', label: 'Otomasi Folder' },
+              { key: 'logs', label: 'Log Audit' },
+              { key: 'settings', label: 'Pengaturan' },
+            ].map((tab) => {
+              const isActive = activeTab === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key as AdminTab)}
+                  className={`py-2 tracking-tight transition-colors shrink-0 relative cursor-pointer ${
+                    isActive
+                      ? 'text-stone-950 font-medium'
+                      : 'text-stone-500 hover:text-stone-900 font-normal'
+                  }`}
+                >
+                  {tab.label}
+                  {isActive && (
+                    <span className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#4A7729] rounded-full" />
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
 
       {/* Main Content Area */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-6xl mx-auto px-6 sm:px-8 py-10">
         {/* TAB 1: DASHBOARD */}
         {activeTab === 'dashboard' && (
-          <div className="space-y-8">
+          <div className="space-y-10">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-              <div className="p-5 rounded-xl bg-white border border-stone-200 shadow-sm flex flex-col justify-center">
-                <span className="text-sm font-medium text-stone-500 mb-1">Penyimpanan Terhubung</span>
-                <h3 className="text-xl font-semibold text-stone-900 mb-2">Google Drive</h3>
-                <p className="text-sm text-[#4A7729]">Root: GMAHK Galilea</p>
+              <div className="p-6 rounded-2xl border border-[#EEEEEC] bg-white flex flex-col justify-between">
+                <span className="text-xs font-normal text-stone-400 uppercase tracking-wider">
+                  Penyimpanan Terhubung
+                </span>
+                <div className="mt-4">
+                  <h3 className="text-xl font-normal text-stone-950">Google Drive</h3>
+                  <p className="text-xs text-[#4A7729] mt-1 font-mono">Root: GMAHK Galilea</p>
+                </div>
               </div>
 
-              <div className="p-5 rounded-xl bg-white border border-stone-200 shadow-sm flex flex-col justify-center">
-                <span className="text-sm font-medium text-stone-500 mb-1">Metadata Layer</span>
-                <h3 className="text-xl font-semibold text-stone-900 mb-2">Cloud Firestore</h3>
-                <p className="text-sm text-[#4A7729]">Project: gmahk-galilea-archive</p>
+              <div className="p-6 rounded-2xl border border-[#EEEEEC] bg-white flex flex-col justify-between">
+                <span className="text-xs font-normal text-stone-400 uppercase tracking-wider">
+                  Metadata Layer
+                </span>
+                <div className="mt-4">
+                  <h3 className="text-xl font-normal text-stone-950">Cloud Firestore</h3>
+                  <p className="text-xs text-[#4A7729] mt-1 font-mono">Project: gmahk-galilea-archive</p>
+                </div>
               </div>
 
-              <div className="p-5 rounded-xl bg-white border border-stone-200 shadow-sm flex flex-col justify-center">
-                <span className="text-sm font-medium text-stone-500 mb-1">Zona Waktu Sistem</span>
-                <h3 className="text-xl font-semibold text-stone-900 mb-2">WITA (UTC+8)</h3>
-                <p className="text-sm text-stone-500">Asia/Makassar</p>
+              <div className="p-6 rounded-2xl border border-[#EEEEEC] bg-white flex flex-col justify-between">
+                <span className="text-xs font-normal text-stone-400 uppercase tracking-wider">
+                  Zona Waktu Sistem
+                </span>
+                <div className="mt-4">
+                  <h3 className="text-xl font-normal text-stone-950">WITA (UTC+8)</h3>
+                  <p className="text-xs text-stone-400 mt-1">Asia/Makassar</p>
+                </div>
               </div>
             </div>
 
             {/* Automation Summary Card */}
-            <div className="p-6 rounded-xl bg-white border border-stone-200 shadow-sm">
-              <h4 className="text-lg font-semibold text-stone-900 mb-3">Status Otomasi Terakhir</h4>
-              <p className="text-sm text-stone-700 mb-4">
+            <div className="p-6 rounded-2xl border border-[#EEEEEC] bg-white">
+              <span className="text-xs font-normal text-stone-400 uppercase tracking-wider">
+                Status Otomasi Terakhir
+              </span>
+              <p className="text-sm text-stone-800 mt-2 leading-relaxed">
                 {automationStatus?.details || 'Otomasi siap dijalankan. Sistem berada dalam kondisi stabil.'}
               </p>
-              <p className="text-xs text-stone-500 flex items-center gap-1.5">
-                <RotateCw className="w-3.5 h-3.5" />
+              <p className="text-xs text-stone-400 mt-4 flex items-center gap-1.5">
+                <RotateCw className="w-3.5 h-3.5 text-stone-400" />
                 Terakhir diperiksa: {automationStatus?.lastRun ? new Date(automationStatus.lastRun).toLocaleString('id-ID') : '-'}
               </p>
             </div>

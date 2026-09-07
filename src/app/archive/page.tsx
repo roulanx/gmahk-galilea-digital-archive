@@ -3,7 +3,6 @@
 import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
-  Folder,
   Image as ImageIcon,
   Video as VideoIcon,
   FileText,
@@ -87,36 +86,44 @@ function ArchiveContent() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] text-stone-900 pb-24">
-      {/* Top Header */}
-      <div className="border-b border-stone-200 bg-stone-50 sticky top-16 z-30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="min-h-screen bg-white text-stone-900 selection:bg-[#4A7729] selection:text-white pb-32">
+      <div className="max-w-6xl mx-auto px-6 sm:px-8">
+        {/* 1. EDITORIAL ARCHIVE HEADER */}
+        <section className="pt-16 pb-10">
+          <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-6">
             <div>
-              <h1 className="text-xl font-semibold text-stone-900 flex items-center gap-2">
-                <Folder className="w-6 h-6 text-[#4A7729]" />
+              <span className="text-xs font-semibold tracking-widest text-[#4A7729] uppercase">
+                Arsip Pelayanan
+              </span>
+              <h1 className="text-3xl sm:text-5xl font-light tracking-tight text-stone-950 mt-1">
                 {category === 'documentation' ? 'Dokumentasi' : 'Berkas Ibadah'}
               </h1>
             </div>
 
-            {/* Category Switcher Tabs */}
-            <div className="inline-flex p-1 rounded-lg bg-stone-100">
+            {/* Category Toggle - Clean Segmented Control */}
+            <div className="inline-flex p-1 rounded-full bg-stone-100/80 border border-stone-200/60 self-start sm:self-auto">
               <button
-                onClick={() => setCategory('documentation')}
-                className={`px-4 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                onClick={() => {
+                  setCategory('documentation');
+                  setFormatFilter('all');
+                }}
+                className={`px-5 py-2 rounded-full text-xs tracking-tight transition-all cursor-pointer ${
                   category === 'documentation'
-                    ? 'bg-[#4A7729] text-white shadow-sm'
-                    : 'text-stone-600 hover:text-stone-900'
+                    ? 'bg-white text-stone-950 font-medium shadow-sm'
+                    : 'text-stone-500 hover:text-stone-900 font-normal'
                 }`}
               >
                 Dokumentasi
               </button>
               <button
-                onClick={() => setCategory('worship')}
-                className={`px-4 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                onClick={() => {
+                  setCategory('worship');
+                  setFormatFilter('all');
+                }}
+                className={`px-5 py-2 rounded-full text-xs tracking-tight transition-all cursor-pointer ${
                   category === 'worship'
-                    ? 'bg-[#4A7729] text-white shadow-sm'
-                    : 'text-stone-600 hover:text-stone-900'
+                    ? 'bg-white text-stone-950 font-medium shadow-sm'
+                    : 'text-stone-500 hover:text-stone-900 font-normal'
                 }`}
               >
                 Berkas Ibadah
@@ -124,169 +131,243 @@ function ArchiveContent() {
             </div>
           </div>
 
-          {/* Year & Quarter Selectors */}
-          <div className="flex flex-wrap items-center gap-2 pt-4">
-            <span className="text-xs font-medium text-stone-500">Tahun:</span>
-            {[2026, 2027].map((y) => (
-              <button
-                key={y}
-                onClick={() => setYear(y)}
-                className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
-                  year === y
-                    ? 'bg-[#4A7729] text-white'
-                    : 'bg-white border border-stone-200 text-stone-600 hover:text-stone-900'
-                }`}
-              >
-                {y}
-              </button>
-            ))}
+          {/* Time Context & Inline Year / Quarter Selectors */}
+          <div className="flex flex-wrap items-center gap-6 pt-8 text-xs text-stone-500">
+            <div className="flex items-center gap-2">
+              <span className="font-normal text-stone-400">Tahun:</span>
+              <div className="flex items-center gap-1">
+                {[2026, 2027].map((y) => (
+                  <button
+                    key={y}
+                    onClick={() => setYear(y)}
+                    className={`px-3 py-1 rounded-full text-xs transition-colors cursor-pointer ${
+                      year === y
+                        ? 'bg-stone-900 text-white font-medium'
+                        : 'text-stone-600 hover:text-stone-950 hover:bg-stone-100'
+                    }`}
+                  >
+                    {y}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-            <span className="text-stone-300 mx-2">|</span>
+            <span className="text-stone-300">·</span>
 
-            <span className="text-xs font-medium text-stone-500">Triwulan:</span>
-            {[1, 2, 3, 4].map((q) => (
-              <button
-                key={q}
-                onClick={() => setQuarter(q)}
-                className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
-                  quarter === q
-                    ? 'bg-[#4A7729] text-white'
-                    : 'bg-white border border-stone-200 text-stone-600 hover:text-stone-900'
-                }`}
-              >
-                Triwulan {q === 1 ? 'I' : q === 2 ? 'II' : q === 3 ? 'III' : 'IV'}
-              </button>
-            ))}
+            <div className="flex items-center gap-2">
+              <span className="font-normal text-stone-400">Triwulan:</span>
+              <div className="flex items-center gap-1">
+                {[1, 2, 3, 4].map((q) => (
+                  <button
+                    key={q}
+                    onClick={() => setQuarter(q)}
+                    className={`px-3 py-1 rounded-full text-xs transition-colors cursor-pointer ${
+                      quarter === q
+                        ? 'bg-stone-900 text-white font-medium'
+                        : 'text-stone-600 hover:text-stone-950 hover:bg-stone-100'
+                    }`}
+                  >
+                    {q === 1 ? 'I' : q === 2 ? 'II' : q === 3 ? 'III' : 'IV'}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+        </section>
 
-      {/* Main Grid: Sabbath Sidebar + Files Browser */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Left Sidebar: Sabbath list */}
-          <div className="lg:col-span-1 space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-stone-200">
-              <span className="text-xs font-semibold uppercase tracking-wider text-stone-500">
+        {/* HAIRLINE DIVIDER */}
+        <div className="border-t border-[#EEEEEC]" />
+
+        {/* 2. MAIN EDITORIAL CONTENT: SABBATH TIMELINE + DOMINANT MEDIA */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-12 pt-12">
+          {/* Left Column: Sabbath Timeline / List */}
+          <div className="md:col-span-4 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-[#EEEEEC]">
+              <span className="text-xs font-semibold uppercase tracking-widest text-stone-400">
                 Daftar Sabat
               </span>
-              <span className="text-[11px] text-[#4A7729] font-medium">
+              <span className="text-xs text-stone-400">
                 {sabbaths.length} Sabat
               </span>
             </div>
 
-            <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1">
+            <div className="space-y-1">
               {sabbaths.map((sab) => {
                 const isSelected = selectedSabbath === sab.date;
                 return (
                   <button
                     key={sab.date}
                     onClick={() => setSelectedSabbath(sab.date)}
-                    className={`w-full text-left p-3 rounded-xl transition-all flex items-center justify-between group ${
+                    className={`w-full text-left py-3.5 px-3 transition-all flex items-baseline justify-between group cursor-pointer rounded-xl ${
                       isSelected
-                        ? 'bg-[#E8F0E0] border border-[#4A7729]'
-                        : 'bg-white border border-stone-200 hover:border-stone-300'
+                        ? 'border-l-2 border-[#4A7729] bg-[#F0F6EB]/60 pl-4'
+                        : 'hover:bg-stone-50 text-stone-600 hover:text-stone-900'
                     }`}
                   >
                     <div>
-                      <p className="font-medium text-sm text-stone-900">{sab.formattedTitle}</p>
-                      <span className="text-xs text-stone-400">{sab.date}</span>
+                      <p
+                        className={`text-sm tracking-tight ${
+                          isSelected ? 'font-medium text-stone-950' : 'font-normal'
+                        }`}
+                      >
+                        {sab.formattedTitle}
+                      </p>
+                      {sab.isToday && (
+                        <span className="inline-block text-[11px] text-[#4A7729] font-medium mt-0.5">
+                          Sabat Hari Ini
+                        </span>
+                      )}
                     </div>
-                    {isSelected && <ChevronRight className="w-4 h-4 text-[#4A7729]" />}
+
+                    <ChevronRight
+                      className={`w-3.5 h-3.5 transition-transform ${
+                        isSelected
+                          ? 'text-[#4A7729] translate-x-0.5'
+                          : 'text-stone-300 opacity-0 group-hover:opacity-100'
+                      }`}
+                    />
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {/* Right Content: Files in selected Sabbath */}
-          <div className="lg:col-span-3 space-y-6">
-            {/* Filter & Search Bar */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-              {/* Search Box */}
-              <div className="relative w-full sm:w-72">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
-                <input
-                  type="text"
-                  placeholder="Cari nama berkas..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 rounded-xl bg-white border border-stone-200 text-sm text-stone-800 placeholder-stone-400 focus:outline-none focus:border-[#4A7729] focus:ring-1 focus:ring-[#4A7729]"
-                />
+          {/* Right Column: Dominant Media & Document Viewer */}
+          <div className="md:col-span-8 space-y-8 md:pl-6">
+            {/* Context bar with Search & Filter */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#EEEEEC]">
+              <div>
+                <span className="text-[11px] uppercase tracking-widest text-stone-400">
+                  Dokumentasi Terpilih
+                </span>
+                <h2 className="text-xl sm:text-2xl font-light tracking-tight text-stone-950">
+                  {sabbaths.find((s) => s.date === selectedSabbath)?.formattedTitle || 'Sabat Terpilih'}
+                </h2>
               </div>
 
-              {/* Format Filter Tabs */}
-              <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
-                {[
-                  { key: 'all', label: 'Semua' },
-                  { key: 'photo', label: 'Foto' },
-                  { key: 'video', label: 'Video' },
-                  { key: 'pdf', label: 'PDF' },
-                  { key: 'presentation', label: 'Slide' },
-                  { key: 'document', label: 'Doc' },
-                ].map((f) => (
-                  <button
-                    key={f.key}
-                    onClick={() => setFormatFilter(f.key)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors shrink-0 ${
-                      formatFilter === f.key
-                        ? 'bg-[#4A7729] text-white'
-                        : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-                    }`}
-                  >
-                    {f.label}
-                  </button>
-                ))}
+              {/* Minimal Search & Filter */}
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+                  <input
+                    type="text"
+                    placeholder="Cari berkas..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-8 pr-3 py-1.5 rounded-full bg-stone-50 border border-stone-200 text-xs text-stone-800 placeholder-stone-400 focus:outline-none focus:border-stone-400 transition-colors w-40 sm:w-48"
+                  />
+                </div>
+
+                {category === 'documentation' && (
+                  <div className="flex items-center gap-1 text-xs">
+                    {[
+                      { key: 'all', label: 'Semua' },
+                      { key: 'photo', label: 'Foto' },
+                      { key: 'video', label: 'Video' },
+                    ].map((f) => (
+                      <button
+                        key={f.key}
+                        onClick={() => setFormatFilter(f.key)}
+                        className={`px-3 py-1 rounded-full text-xs transition-colors cursor-pointer ${
+                          formatFilter === f.key
+                            ? 'bg-stone-900 text-white font-medium'
+                            : 'text-stone-500 hover:text-stone-900 hover:bg-stone-100'
+                        }`}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Files Grid / Empty State */}
+            {/* Content Display: Loading / Empty / Gallery / Document List */}
             {loading ? (
-              <div className="p-16 text-center text-stone-500">Memuat berkas...</div>
+              <div className="py-24 text-center text-stone-400 text-sm">
+                Memuat dokumentasi...
+              </div>
             ) : filteredFiles.length === 0 ? (
-              <div className="p-16 text-center rounded-2xl bg-stone-50 border border-stone-200 space-y-2">
-                <FileText className="w-10 h-10 mx-auto text-stone-400" />
-                <p className="text-sm font-medium text-stone-800">Belum ada berkas tersimpan</p>
-                <p className="text-xs text-stone-500">
-                  Belum ada berkas yang diunggah untuk Sabat dan kategori ini.
+              <div className="py-24 text-center space-y-2">
+                <FileText className="w-8 h-8 mx-auto text-stone-300" />
+                <p className="text-sm font-medium text-stone-800">
+                  Belum ada berkas untuk Sabat ini
+                </p>
+                <p className="text-xs text-stone-400 max-w-sm mx-auto">
+                  Belum ada dokumentasi atau file ibadah yang tersimpan untuk tanggal ini.
                 </p>
               </div>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+            ) : category === 'documentation' ? (
+              /* A. PHOTO & VIDEO VISUAL GALLERY */
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-5">
                 {filteredFiles.map((file, idx) => (
                   <div
                     key={file.id}
                     onClick={() => setViewerIndex(idx)}
-                    className="group relative rounded-xl bg-white border border-stone-200 hover:border-stone-300 overflow-hidden cursor-pointer shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
+                    className="group cursor-pointer flex flex-col"
                   >
-                    {/* Thumbnail / Icon Container */}
-                    <div className="relative aspect-video w-full bg-stone-100 flex items-center justify-center overflow-hidden">
+                    <div className="relative aspect-[4/3] w-full rounded-2xl overflow-hidden bg-stone-100">
                       {file.thumbnailUrl ? (
-                         // eslint-disable-next-line @next/next/no-img-element
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={file.thumbnailUrl}
                           alt={file.name}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                           loading="lazy"
                         />
                       ) : (
-                        <div className="p-4">{getFormatIcon(file.fileType)}</div>
+                        <div className="w-full h-full flex items-center justify-center text-stone-300">
+                          {file.fileType === 'video' ? (
+                            <VideoIcon className="w-8 h-8" />
+                          ) : (
+                            <ImageIcon className="w-8 h-8" />
+                          )}
+                        </div>
                       )}
 
-                      {/* File format indicator badge */}
-                      <span className="absolute top-2 right-2 px-1.5 py-0.5 rounded-md bg-white/90 shadow-sm text-[10px] font-mono text-stone-600 uppercase">
+                      <div className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full bg-black/40 backdrop-blur-md text-white text-[10px] font-mono tracking-wider uppercase">
                         {file.fileType}
-                      </span>
+                      </div>
                     </div>
 
-                    {/* Meta info */}
-                    <div className="p-3">
-                      <p className="text-xs font-medium text-stone-800 truncate group-hover:text-[#4A7729] transition-colors">
+                    <div className="pt-2.5">
+                      <p className="text-xs font-medium text-stone-900 group-hover:text-[#4A7729] transition-colors truncate">
                         {file.name}
                       </p>
-                      <p className="text-[10px] text-stone-400 mt-1">
+                      <p className="text-[11px] text-stone-400 mt-0.5">
                         {(file.size / (1024 * 1024)).toFixed(2)} MB
                       </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              /* B. WORSHIP CLEAN DOCUMENT LIST */
+              <div className="divide-y divide-[#EEEEEC]">
+                {filteredFiles.map((file, idx) => (
+                  <div
+                    key={file.id}
+                    onClick={() => setViewerIndex(idx)}
+                    className="py-4 flex items-center justify-between gap-4 hover:bg-stone-50/80 px-3 rounded-xl transition-colors cursor-pointer group"
+                  >
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      <div className="w-10 h-10 rounded-xl bg-stone-100 flex items-center justify-center shrink-0">
+                        {getFormatIcon(file.fileType)}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-stone-900 group-hover:text-[#4A7729] transition-colors truncate">
+                          {file.name}
+                        </p>
+                        <p className="text-xs text-stone-400 mt-0.5">
+                          {(file.size / (1024 * 1024)).toFixed(2)} MB • {file.fileType.toUpperCase()}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className="text-xs font-medium text-stone-600 group-hover:text-stone-950 transition-colors">
+                        Buka Berkas →
+                      </span>
                     </div>
                   </div>
                 ))}

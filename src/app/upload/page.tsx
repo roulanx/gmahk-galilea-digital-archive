@@ -11,11 +11,7 @@ import {
   X,
   Calendar,
   Image as ImageIcon,
-  ChevronDown,
-  ChevronUp,
-  ArrowRight,
   RefreshCw,
-  Plus,
 } from 'lucide-react';
 import { ArchiveCategory, SabbathInfo } from '@/lib/types';
 import { useAuth } from '@/context/AuthContext';
@@ -177,206 +173,202 @@ function UploadContent() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] py-8 px-4">
-      <div className="max-w-2xl mx-auto">
-        {/* Page Title Header */}
-        <div className="text-center space-y-2 mb-8">
-          <h1 className="text-2xl font-bold text-stone-900">
-            Unggah Berkas
+    <div className="min-h-screen bg-white text-stone-900 selection:bg-[#4A7729] selection:text-white pb-32">
+      <div className="max-w-xl mx-auto px-6 pt-16 sm:pt-24">
+        {/* 1. EDITORIAL TITLE */}
+        <div className="space-y-3 mb-12">
+          <span className="text-xs font-semibold tracking-widest text-[#4A7729] uppercase">
+            Portal Pelayanan
+          </span>
+          <h1 className="text-3xl sm:text-5xl font-light tracking-tight text-stone-950">
+            Unggah Dokumentasi
           </h1>
           <p className="text-sm text-stone-500">
-            Pilih berkas untuk diunggah ke folder Sabat.
+            Simpan foto, rekaman video, dan berkas ibadah ke arsip resmi GMAHK Galilea.
           </p>
         </div>
 
-        <div className="space-y-6">
-          {/* HERO BANNER: Active Destination Display */}
-          <div className="bg-white border border-stone-200 rounded-2xl p-5 shadow-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        {/* 2. SABBATH DESTINATION CONTEXT */}
+        <div className="py-6 border-y border-[#EEEEEC] mb-10 space-y-3">
+          <div className="flex items-baseline justify-between gap-4">
+            <div>
+              <p className="text-xs font-normal text-stone-400 uppercase tracking-wider">
+                Sabat Tujuan
+              </p>
+              <h2 className="text-xl sm:text-2xl font-normal text-stone-950 mt-0.5">
+                {activeFormattedTitle}
+              </h2>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowDatePicker(!showDatePicker)}
+              className="text-xs font-medium text-[#4A7729] hover:text-[#3D6422] transition-colors cursor-pointer"
+            >
+              {showDatePicker ? 'Tutup Pilihan' : 'Ganti tanggal'}
+            </button>
+          </div>
+
+          <p className="text-xs text-stone-400 font-mono">
+            {destinationBreadcrumb}
+          </p>
+
+          {/* Collapsible Date Selector */}
+          {showDatePicker && (
+            <div className="pt-4 mt-4 border-t border-[#EEEEEC] space-y-4 animate-in fade-in duration-200">
+              <div className="space-y-2">
+                <span className="text-xs text-stone-500 font-normal">Pilih Sabat Lain:</span>
+                <div className="flex flex-wrap gap-2">
+                  {defaultSabbath && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSabbathDate(defaultSabbath.date)}
+                      className={`px-3 py-1.5 rounded-full text-xs transition-all cursor-pointer ${
+                        selectedSabbathDate === defaultSabbath.date
+                          ? 'bg-stone-950 text-white font-medium'
+                          : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                      }`}
+                    >
+                      Sabat Terdekat ({defaultSabbath.formattedTitle.split(' ').slice(0, 2).join(' ')})
+                    </button>
+                  )}
+                  {previousSabbath && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSabbathDate(previousSabbath.date)}
+                      className={`px-3 py-1.5 rounded-full text-xs transition-all cursor-pointer ${
+                        selectedSabbathDate === previousSabbath.date
+                          ? 'bg-stone-950 text-white font-medium'
+                          : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                      }`}
+                    >
+                      Sabat Lalu ({previousSabbath.formattedTitle.split(' ').slice(0, 2).join(' ')})
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="relative pt-1">
+                <select
+                  value={selectedSabbathDate}
+                  onChange={(e) => setSelectedSabbathDate(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl bg-stone-50 border border-stone-200 text-xs text-stone-800 focus:outline-none focus:border-stone-400 appearance-none cursor-pointer"
+                >
+                  {sabbathList.map((sab) => (
+                    <option key={sab.date} value={sab.date}>
+                      {sab.formattedTitle} ({sab.quarterTitle}) {sab.isToday ? '• Hari Ini' : ''}
+                    </option>
+                  ))}
+                </select>
+                <Calendar className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none" />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Success Alert */}
+        {uploadSuccessData && (
+          <div className="mb-10 p-6 rounded-2xl bg-[#F0F6EB] border border-[#4A7729]/20 space-y-4 animate-in fade-in duration-300">
+            <div className="flex items-start gap-3">
+              <CheckCircle2 className="w-5 h-5 text-[#4A7729] shrink-0 mt-0.5" />
               <div className="space-y-1">
-                <p className="text-sm text-stone-500">Upload untuk Sabat</p>
-                <h2 className="text-xl font-semibold text-stone-900">
-                  {activeFormattedTitle}
-                </h2>
-                <p className="text-xs text-[#4A7729] font-mono mt-1 flex items-center overflow-x-auto whitespace-nowrap">
-                  {destinationBreadcrumb}
+                <h3 className="font-medium text-sm text-stone-950">
+                  {uploadSuccessData.count} Berkas Berhasil Diunggah
+                </h3>
+                <p className="text-xs text-stone-600 leading-relaxed">
+                  Berkas telah disimpan dengan aman di Google Drive dan terindeks di arsip jemaat.
                 </p>
               </div>
+            </div>
+
+            <div className="flex items-center gap-4 pt-2">
+              <Link
+                href={`/archive?sabbath=${uploadSuccessData.sabbathDate}&category=${uploadSuccessData.category}`}
+                className="text-xs font-medium text-[#4A7729] hover:underline"
+              >
+                Lihat di Penjelajah Arsip →
+              </Link>
+              <button
+                type="button"
+                onClick={() => setUploadSuccessData(null)}
+                className="text-xs font-medium text-stone-600 hover:text-stone-900 cursor-pointer"
+              >
+                Unggah Berkas Lain
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Error Alert */}
+        {errorMessage && (
+          <div className="mb-10 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-3">
+            <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+            <p>{errorMessage}</p>
+          </div>
+        )}
+
+        {/* MAIN UPLOAD FLOW */}
+        <form onSubmit={handleUploadSubmit} className="space-y-10">
+          {/* STEP 1: CATEGORY SELECTION */}
+          <div className="space-y-3">
+            <label className="text-sm font-normal text-stone-800 block">
+              Apa yang ingin Anda unggah?
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <button
+                type="button"
+                onClick={() => setCategory('documentation')}
+                className={`p-5 rounded-2xl text-left transition-all cursor-pointer border ${
+                  category === 'documentation'
+                    ? 'border-[#4A7729] bg-[#F0F6EB] shadow-sm'
+                    : 'border-stone-200 bg-white hover:border-stone-300'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <ImageIcon
+                    className={`w-5 h-5 ${
+                      category === 'documentation' ? 'text-[#4A7729]' : 'text-stone-400'
+                    }`}
+                  />
+                  {category === 'documentation' && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#4A7729]" />
+                  )}
+                </div>
+                <p className="font-medium text-sm text-stone-950">Dokumentasi</p>
+                <p className="text-xs text-stone-500 mt-1 leading-normal">
+                  Foto dan rekaman video kegiatan Sabat
+                </p>
+              </button>
 
               <button
                 type="button"
-                onClick={() => setShowDatePicker(!showDatePicker)}
-                className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-stone-100 hover:bg-stone-200 text-xs font-medium text-stone-600 transition-all shrink-0 self-start sm:self-center cursor-pointer"
+                onClick={() => setCategory('worship')}
+                className={`p-5 rounded-2xl text-left transition-all cursor-pointer border ${
+                  category === 'worship'
+                    ? 'border-[#4A7729] bg-[#F0F6EB] shadow-sm'
+                    : 'border-stone-200 bg-white hover:border-stone-300'
+                }`}
               >
-                <Calendar className="w-3.5 h-3.5" />
-                <span>{showDatePicker ? 'Tutup Pilihan' : 'Ganti tanggal'}</span>
-                {showDatePicker ? (
-                  <ChevronUp className="w-3.5 h-3.5" />
-                ) : (
-                  <ChevronDown className="w-3.5 h-3.5" />
-                )}
+                <div className="flex items-center justify-between mb-3">
+                  <FileText
+                    className={`w-5 h-5 ${
+                      category === 'worship' ? 'text-[#4A7729]' : 'text-stone-400'
+                    }`}
+                  />
+                  {category === 'worship' && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#4A7729]" />
+                  )}
+                </div>
+                <p className="font-medium text-sm text-stone-950">Berkas Ibadah</p>
+                <p className="text-xs text-stone-500 mt-1 leading-normal">
+                  Tata ibadah PDF, slide khotbah, warta jemaat
+                </p>
               </button>
             </div>
-
-            {showDatePicker && (
-              <div className="mt-4 pt-4 border-t border-stone-200 space-y-4 animate-in fade-in duration-200">
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold text-stone-500">Pilih Cepat:</p>
-                  <div className="flex flex-wrap gap-2">
-                    {defaultSabbath && (
-                      <button
-                        type="button"
-                        onClick={() => setSelectedSabbathDate(defaultSabbath.date)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all cursor-pointer ${
-                          selectedSabbathDate === defaultSabbath.date
-                            ? 'bg-[#4A7729] border-[#4A7729] text-white'
-                            : 'bg-white border-stone-200 text-stone-600 hover:bg-stone-50'
-                        }`}
-                      >
-                        Sabat Terdekat ({defaultSabbath.formattedTitle.split(' ').slice(0, 2).join(' ')})
-                      </button>
-                    )}
-                    {previousSabbath && (
-                      <button
-                        type="button"
-                        onClick={() => setSelectedSabbathDate(previousSabbath.date)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all cursor-pointer ${
-                          selectedSabbathDate === previousSabbath.date
-                            ? 'bg-[#4A7729] border-[#4A7729] text-white'
-                            : 'bg-white border-stone-200 text-stone-600 hover:bg-stone-50'
-                        }`}
-                      >
-                        Sabat Lalu ({previousSabbath.formattedTitle.split(' ').slice(0, 2).join(' ')})
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-stone-500 block">
-                    Atau Pilih Sabat Lain:
-                  </label>
-                  <div className="relative">
-                    <select
-                      value={selectedSabbathDate}
-                      onChange={(e) => setSelectedSabbathDate(e.target.value)}
-                      className="w-full px-3 py-2.5 rounded-xl bg-white border border-stone-200 text-sm text-stone-700 focus:outline-none focus:border-[#4A7729] appearance-none font-medium cursor-pointer"
-                    >
-                      {sabbathList.map((sab) => (
-                        <option key={sab.date} value={sab.date}>
-                          {sab.formattedTitle} ({sab.quarterTitle}) {sab.isToday ? '• Hari Ini' : ''}
-                        </option>
-                      ))}
-                    </select>
-                    <Calendar className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none" />
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
 
-          {/* Upload Success Alert */}
-          {uploadSuccessData && (
-            <div className="p-5 rounded-2xl bg-[#E8F0E0] border border-[#4A7729]/20 space-y-3 animate-in fade-in duration-300">
-              <div className="flex items-start gap-3">
-                <CheckCircle2 className="w-6 h-6 text-[#4A7729] shrink-0 mt-0.5" />
-                <div className="space-y-1">
-                  <h3 className="font-bold text-sm text-stone-900">
-                    {uploadSuccessData.count} Berkas Berhasil Diunggah!
-                  </h3>
-                  <p className="text-xs text-stone-600">
-                    Semua berkas telah disimpan di Google Drive.
-                  </p>
-                  <p className="text-[11px] font-mono text-[#4A7729] break-all pt-1">
-                    📁 {uploadSuccessData.path}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-2 pt-2">
-                <Link
-                  href={`/archive?sabbath=${uploadSuccessData.sabbathDate}&category=${uploadSuccessData.category}`}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#4A7729] hover:bg-[#3D6422] text-white text-xs font-semibold transition-all"
-                >
-                  <span>Lihat di Arsip</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => setUploadSuccessData(null)}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white border border-stone-200 hover:bg-stone-50 text-stone-700 text-xs font-semibold transition-all cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Unggah Lagi</span>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Error Alert */}
-          {errorMessage && (
-            <div className="p-4 rounded-2xl bg-red-50 border border-red-200 text-red-700 flex items-center gap-3">
-              <AlertCircle className="w-5 h-5 shrink-0" />
-              <p className="text-xs sm:text-sm font-medium">{errorMessage}</p>
-            </div>
-          )}
-
-          <form onSubmit={handleUploadSubmit} className="space-y-6">
-            {/* STEP 1: Category Selection */}
-            <div className="p-5 rounded-2xl bg-white border border-stone-200 space-y-4">
-              <label className="text-sm font-medium text-stone-700 block">
-                Kategori
-              </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setCategory('documentation')}
-                  className={`p-4 rounded-xl border text-left transition-all cursor-pointer ${
-                    category === 'documentation'
-                      ? 'border-[#4A7729] bg-[#E8F0E0] ring-1 ring-[#4A7729]/20'
-                      : 'bg-stone-50 border-stone-200 hover:border-stone-300'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <ImageIcon className={`w-5 h-5 ${category === 'documentation' ? 'text-[#4A7729]' : 'text-stone-400'}`} />
-                    {category === 'documentation' && (
-                      <CheckCircle2 className="w-4 h-4 text-[#4A7729]" />
-                    )}
-                  </div>
-                  <p className={`font-semibold text-sm ${category === 'documentation' ? 'text-stone-900' : 'text-stone-700'}`}>
-                    Dokumentasi
-                  </p>
-                  <p className={`text-[11px] mt-1 ${category === 'documentation' ? 'text-[#4A7729]/80' : 'text-stone-500'}`}>
-                    Foto & rekaman video kegiatan ibadah Sabat
-                  </p>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setCategory('worship')}
-                  className={`p-4 rounded-xl border text-left transition-all cursor-pointer ${
-                    category === 'worship'
-                      ? 'border-[#4A7729] bg-[#E8F0E0] ring-1 ring-[#4A7729]/20'
-                      : 'bg-stone-50 border-stone-200 hover:border-stone-300'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <FileText className={`w-5 h-5 ${category === 'worship' ? 'text-[#4A7729]' : 'text-stone-400'}`} />
-                    {category === 'worship' && (
-                      <CheckCircle2 className="w-4 h-4 text-[#4A7729]" />
-                    )}
-                  </div>
-                  <p className={`font-semibold text-sm ${category === 'worship' ? 'text-stone-900' : 'text-stone-700'}`}>
-                    File Ibadah
-                  </p>
-                  <p className={`text-[11px] mt-1 ${category === 'worship' ? 'text-[#4A7729]/80' : 'text-stone-500'}`}>
-                    Tata Ibadah PDF, Slide Khotbah PPTX, Lembar Warta
-                  </p>
-                </button>
-              </div>
-            </div>
-
-            {/* STEP 2: Drag & Drop */}
+          {/* STEP 2: LARGE MINIMALIST DROPZONE */}
+          <div className="space-y-3">
             <div
               onDragOver={(e) => {
                 e.preventDefault();
@@ -385,10 +377,10 @@ function UploadContent() {
               onDragLeave={() => setDragOver(false)}
               onDrop={handleFileDrop}
               onClick={() => fileInputRef.current?.click()}
-              className={`p-8 sm:p-10 rounded-2xl bg-white border-2 border-dashed text-center cursor-pointer transition-all duration-200 ${
+              className={`p-12 sm:p-16 rounded-3xl border-2 border-dashed text-center cursor-pointer transition-all duration-300 ${
                 dragOver
-                  ? 'border-[#4A7729] bg-[#E8F0E0]/50'
-                  : 'border-stone-300 hover:border-stone-400 hover:bg-stone-50/50'
+                  ? 'border-[#4A7729] bg-[#F0F6EB]/50'
+                  : 'border-stone-200 hover:border-stone-300 bg-stone-50/50 hover:bg-stone-50'
               }`}
             >
               <input
@@ -399,103 +391,111 @@ function UploadContent() {
                 className="hidden"
                 accept="image/*,video/*,application/pdf,.ppt,.pptx,.doc,.docx,.xls,.xlsx"
               />
-              <div className="space-y-3">
-                <div className={`w-12 h-12 mx-auto rounded-full flex items-center justify-center ${dragOver ? 'bg-[#E8F0E0] text-[#4A7729]' : 'bg-stone-100 text-stone-400'}`}>
-                  <UploadCloud className="w-6 h-6" />
+              <div className="space-y-4 max-w-xs mx-auto">
+                <div className="w-12 h-12 mx-auto rounded-full bg-white border border-stone-200 flex items-center justify-center text-stone-400 shadow-2xs">
+                  <UploadCloud className="w-5 h-5 text-stone-600" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-stone-900">
-                    Ketuk untuk memilih berkas
+                  <p className="text-sm font-normal text-stone-900">
+                    Tarik file ke sini
                   </p>
-                  <p className="text-xs text-stone-500 mt-1">
-                    Atau tarik dan lepaskan berkas ke area ini
+                  <p className="text-xs text-stone-400 mt-1">
+                    atau
                   </p>
                 </div>
-                <div className="inline-block px-3 py-1.5 rounded-lg bg-stone-100 text-[11px] text-stone-500 font-medium">
-                  Mendukung foto, MP4, PDF, & Slide PPTX
+                <div>
+                  <span className="inline-block px-5 py-2 rounded-full bg-white border border-stone-200 text-xs font-medium text-stone-700 hover:border-stone-300 shadow-2xs">
+                    Pilih Berkas
+                  </span>
                 </div>
+                <p className="text-[11px] text-stone-400 pt-2">
+                  Mendukung foto, video MP4, PDF, dan dokumen presentasi
+                </p>
               </div>
             </div>
 
             {/* Selected Files Queue */}
             {selectedFiles.length > 0 && (
-              <div className="space-y-3">
+              <div className="pt-4 space-y-3">
                 <div className="flex items-center justify-between text-xs text-stone-500 px-1">
-                  <span className="font-semibold text-stone-700">Antrean Berkas ({selectedFiles.length})</span>
+                  <span className="font-medium text-stone-900">
+                    {selectedFiles.length} berkas dipilih
+                  </span>
                   <button
                     type="button"
                     onClick={() => setSelectedFiles([])}
-                    className="hover:text-red-600 transition-colors cursor-pointer"
+                    className="text-xs text-rose-600 hover:underline cursor-pointer"
                   >
                     Hapus Semua
                   </button>
                 </div>
 
-                <div className="space-y-2 max-h-52 overflow-y-auto">
+                <div className="divide-y divide-[#EEEEEC] border border-[#EEEEEC] rounded-2xl overflow-hidden bg-white">
                   {selectedFiles.map((file, idx) => (
                     <div
                       key={idx}
-                      className="flex items-center justify-between p-3 rounded-xl bg-stone-50 border border-stone-200 text-xs"
+                      className="flex items-center justify-between p-3.5 text-xs hover:bg-stone-50 transition-colors"
                     >
                       <div className="truncate max-w-[80%]">
-                        <p className="font-semibold text-stone-700 truncate">{file.name}</p>
-                        <p className="text-[10px] text-stone-500">
+                        <p className="font-medium text-stone-900 truncate">{file.name}</p>
+                        <p className="text-[11px] text-stone-400 mt-0.5">
                           {(file.size / (1024 * 1024)).toFixed(2)} MB
                         </p>
                       </div>
                       <button
                         type="button"
                         onClick={() => removeFile(idx)}
-                        className="p-1.5 rounded-lg text-stone-400 hover:text-red-500 hover:bg-stone-200 cursor-pointer transition-colors"
+                        className="p-1 rounded-full text-stone-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer transition-colors"
+                        aria-label="Hapus berkas"
                       >
-                        <X className="w-4 h-4" />
+                        <X className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   ))}
                 </div>
               </div>
             )}
+          </div>
 
-            {/* STEP 3: Progress & Upload Action */}
-            {uploading && (
-              <div className="p-4 rounded-xl bg-stone-50 border border-stone-200 space-y-3">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-stone-600 font-medium flex items-center gap-2">
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#4A7729]" />
-                    {uploadStatusText}
-                  </span>
-                  <span className="font-bold text-[#4A7729]">{uploadProgress}%</span>
-                </div>
-                <div className="w-full bg-stone-200 rounded-full h-2 overflow-hidden">
-                  <div
-                    className="bg-[#4A7729] h-full transition-all duration-300"
-                    style={{ width: `${uploadProgress}%` }}
-                  ></div>
-                </div>
+          {/* UPLOAD PROGRESS */}
+          {uploading && (
+            <div className="space-y-2 py-2">
+              <div className="flex items-center justify-between text-xs text-stone-600">
+                <span className="flex items-center gap-2">
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#4A7729]" />
+                  {uploadStatusText}
+                </span>
+                <span className="font-mono text-stone-900">{uploadProgress}%</span>
               </div>
-            )}
+              <div className="w-full bg-stone-100 rounded-full h-1.5 overflow-hidden">
+                <div
+                  className="bg-[#4A7729] h-full transition-all duration-300"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+            </div>
+          )}
 
+          {/* PRIMARY CTA */}
+          <div className="pt-4">
             <button
               type="submit"
               disabled={uploading || selectedFiles.length === 0}
-              className="w-full py-3.5 px-6 rounded-xl bg-[#4A7729] hover:bg-[#3D6422] active:scale-[0.99] text-white font-semibold text-sm transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full py-4 rounded-full bg-stone-950 hover:bg-stone-800 disabled:opacity-30 disabled:hover:bg-stone-950 text-white font-medium text-sm transition-all cursor-pointer shadow-sm flex items-center justify-center gap-2"
             >
               {uploading ? (
                 <>
                   <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>Memproses...</span>
+                  <span>Mengunggah...</span>
                 </>
               ) : selectedFiles.length > 0 ? (
-                <>
-                  <UploadCloud className="w-4 h-4" />
-                  <span>Unggah {selectedFiles.length} Berkas</span>
-                </>
+                <span>Unggah Sekarang</span>
               ) : (
                 <span>Pilih Berkas Terlebih Dahulu</span>
               )}
             </button>
-          </form>
-        </div>
+          </div>
+        </form>
       </div>
     </div>
   );
@@ -505,7 +505,7 @@ export default function UploadPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center text-stone-500 text-sm">
+        <div className="min-h-screen bg-white flex items-center justify-center text-stone-400 text-sm">
           Memuat formulir unggah...
         </div>
       }

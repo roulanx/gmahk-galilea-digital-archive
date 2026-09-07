@@ -6,13 +6,13 @@ export default function Footer() {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="w-full border-t border-stone-200 bg-stone-50 text-stone-500">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-sm">
-          <p className="text-center sm:text-left">
+    <footer className="w-full border-t border-[#EEEEEC] bg-white text-stone-400">
+      <div className="max-w-6xl mx-auto px-6 sm:px-8 py-10">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
+          <p className="tracking-wide">
             &copy; {currentYear} Kevin Simatupang
           </p>
-          <p className="text-center sm:text-right font-medium text-stone-600">
+          <p className="tracking-wider text-stone-500 uppercase text-[11px] font-normal">
             Dokumentasi Digital GMAHK Galilea
           </p>
         </div>
