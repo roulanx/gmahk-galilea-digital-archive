@@ -1,5 +1,7 @@
 import { google } from 'googleapis';
 import { Readable } from 'stream';
+import { ArchiveCategory } from './types';
+import { parseSabbathDetails, isValidSabbathDate } from './sabbath';
 
 export interface DriveFolderResult {
   id: string;
@@ -155,5 +157,120 @@ export async function uploadFileToDrive(params: {
     webViewLink: res.data.webViewLink || undefined,
     webContentLink: res.data.webContentLink || undefined,
     size: res.data.size ? parseInt(res.data.size, 10) : undefined,
+  };
+}
+
+/**
+ * Finds an existing file by name inside a parent folder
+ */
+export async function findFileByName(
+  parentFolderId: string,
+  fileName: string
+): Promise<string | null> {
+  const drive = getGoogleDriveClient();
+  if (!drive) return null;
+
+  try {
+    const escapedName = fileName.replace(/'/g, "\\'");
+    const res = await drive.files.list({
+      q: `'${parentFolderId}' in parents and name = '${escapedName}' and trashed = false`,
+      fields: 'files(id, name)',
+      spaces: 'drive',
+    });
+
+    const files = res.data.files;
+    if (files && files.length > 0 && files[0].id) {
+      return files[0].id;
+    }
+    return null;
+  } catch (err) {
+    console.error(`Error finding file ${fileName} in ${parentFolderId}:`, err);
+    return null;
+  }
+}
+
+/**
+ * Returns a non-colliding file name inside the parent folder.
+ * If 'file.jpg' exists, returns 'file (1).jpg', 'file (2).jpg', etc.
+ */
+export async function getNonCollidingFileName(
+  parentFolderId: string,
+  fileName: string
+): Promise<string> {
+  let candidate = fileName;
+  let counter = 1;
+
+  while (await findFileByName(parentFolderId, candidate)) {
+    const dotIdx = fileName.lastIndexOf('.');
+    if (dotIdx !== -1) {
+      const base = fileName.substring(0, dotIdx);
+      const ext = fileName.substring(dotIdx);
+      candidate = `${base} (${counter})${ext}`;
+    } else {
+      candidate = `${fileName} (${counter})`;
+    }
+    counter++;
+    if (counter > 50) break;
+  }
+
+  return candidate;
+}
+
+/**
+ * Strictly resolves and ensures the managed Sabbath archive destination folder:
+ * GMAHK Galilea/
+ * └── Dokumentasi atau File Ibadah/
+ *     └── Year (e.g. 2026)/
+ *         └── Quarter (e.g. Triwulan III)/
+ *             └── Sabbath (e.g. 12 September 2026)/
+ *
+ * This guarantees boundary protection:
+ * - Only managed root folders are used
+ * - Client cannot supply an arbitrary folder ID
+ * - Folders are ensured idempotently
+ */
+export async function resolveSabbathDestinationFolder(
+  category: ArchiveCategory,
+  sabbathDate: string
+): Promise<{
+  folderId: string;
+  folderPath: string;
+  year: number;
+  quarter: number;
+  quarterTitle: string;
+  sabbathTitle: string;
+  isExisting: boolean;
+}> {
+  if (!isValidSabbathDate(sabbathDate)) {
+    throw new Error(`Tanggal '${sabbathDate}' bukan hari Sabat yang valid.`);
+  }
+
+  const { year, quarter, quarterTitle, formattedTitle } = parseSabbathDetails(sabbathDate);
+  const categoryFolderId =
+    category === 'documentation'
+      ? process.env.GOOGLE_DRIVE_DOKUMENTASI_FOLDER_ID || 'managed_dok_root'
+      : process.env.GOOGLE_DRIVE_FILE_IBADAH_FOLDER_ID || 'managed_ibadah_root';
+
+  const categoryName = category === 'documentation' ? 'Dokumentasi' : 'File Ibadah';
+
+  // 1. Ensure Year folder (e.g. 2026) under category root
+  const yearRes = await ensureFolder(categoryFolderId, year.toString());
+
+  // 2. Ensure Quarter folder (e.g. Triwulan III) under Year
+  const quarterRes = await ensureFolder(yearRes.id, quarterTitle);
+
+  // 3. Ensure Sabbath folder (e.g. 12 September 2026) under Quarter
+  const sabbathRes = await ensureFolder(quarterRes.id, formattedTitle);
+
+  const folderPath = `GMAHK Galilea/${categoryName}/${year}/${quarterTitle}/${formattedTitle}`;
+
+  return {
+    folderId: sabbathRes.id,
+    folderPath,
+    year,
+    quarter,
+    quarterTitle,
+    sabbathTitle: formattedTitle,
+    isExisting: sabbathRes.isExisting,
   };
 }

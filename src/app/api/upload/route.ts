@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/auth-server';
-import { getDefaultUploadSabbath, getQuarterFromMonth, formatSabbathTitle } from '@/lib/sabbath';
-import { uploadFileToDrive } from '@/lib/drive';
+import { getDefaultUploadSabbath, isValidSabbathDate } from '@/lib/sabbath';
+import { uploadFileToDrive, resolveSabbathDestinationFolder, getNonCollidingFileName } from '@/lib/drive';
 import { indexFile, logSystemEvent } from '@/lib/firestore';
 import { ArchiveCategory, FileFormatType, FileItem } from '@/lib/types';
 import { Readable } from 'stream';
@@ -46,60 +46,66 @@ export async function POST(req: NextRequest) {
     // Both viewer and admin can upload according to system rules
     const formData = await req.formData();
     const files = formData.getAll('files') as File[];
-    const category = (formData.get('category') as ArchiveCategory) || 'documentation';
-    let targetSabbathDate = formData.get('sabbathDate') as string | null;
+    const rawCategory = formData.get('category') as string;
+    const category: ArchiveCategory = rawCategory === 'worship' ? 'worship' : 'documentation';
+    let targetSabbathDate = (formData.get('sabbathDate') as string | null)?.trim() || null;
 
     if (!files || files.length === 0) {
-      return NextResponse.json({ success: false, error: 'No files provided' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Pilih minimal satu berkas untuk diunggah.' }, { status: 400 });
     }
 
-    // Default to upcoming Sabbath if none specified
+    // 1. Determine or validate Sabbath destination
+    // If not provided by client, backend calculates the nearest active Sabbath using Asia/Makassar (WITA)
     if (!targetSabbathDate) {
       const defaultSabbath = getDefaultUploadSabbath();
       targetSabbathDate = defaultSabbath.date;
+    } else if (!isValidSabbathDate(targetSabbathDate)) {
+      // Reject invalid dates to protect archive integrity
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Tanggal '${targetSabbathDate}' bukan hari Sabat yang valid. Format yang diharapkan adalah YYYY-MM-DD (hari Sabtu).`,
+        },
+        { status: 400 }
+      );
     }
 
-    const [yStr, mStr] = targetSabbathDate.split('-');
-    const year = parseInt(yStr, 10);
-    const month = parseInt(mStr, 10);
-    const quarter = getQuarterFromMonth(month);
-    const sabbathTitle = formatSabbathTitle(targetSabbathDate);
-
-    const targetFolderId =
-      category === 'documentation'
-        ? process.env.GOOGLE_DRIVE_DOKUMENTASI_FOLDER_ID || 'target_dok_folder'
-        : process.env.GOOGLE_DRIVE_FILE_IBADAH_FOLDER_ID || 'target_ibadah_folder';
+    // 2. Resolve destination folder inside managed Google Drive archive boundary
+    // Client can NEVER supply arbitrary folder IDs. Hierarchy is strictly ensured idempotently.
+    const destination = await resolveSabbathDestinationFolder(category, targetSabbathDate);
 
     const uploadedResults: FileItem[] = [];
 
+    // 3. Process each file with duplicate collision avoidance (no silent overwrite)
     for (const file of files) {
+      const safeFileName = await getNonCollidingFileName(destination.folderId, file.name);
       const buffer = Buffer.from(await file.arrayBuffer());
       const stream = Readable.from(buffer);
       const mimeType = file.type || 'application/octet-stream';
-      const fileType = determineFileType(mimeType, file.name);
+      const fileType = determineFileType(mimeType, safeFileName);
 
       const driveRes = await uploadFileToDrive({
-        folderId: targetFolderId,
-        name: file.name,
+        folderId: destination.folderId,
+        name: safeFileName,
         mimeType,
         stream,
       });
 
       const fileItem: FileItem = {
         id: driveRes.id,
-        name: file.name,
+        name: safeFileName,
         mimeType,
         size: file.size,
         category,
         fileType,
         sabbathDate: targetSabbathDate,
-        sabbathTitle,
-        year,
-        quarter,
-        folderId: targetFolderId,
+        sabbathTitle: destination.sabbathTitle,
+        year: destination.year,
+        quarter: destination.quarter,
+        folderId: destination.folderId,
         webViewLink: driveRes.webViewLink,
         webContentLink: driveRes.webContentLink,
-        uploadedBy: session?.email || 'viewer@gmahk-galilea.org',
+        uploadedBy: session?.email || 'jemaat@gmahk-galilea.org',
         uploadedAt: new Date().toISOString(),
         isRandomEligible: fileType === 'photo' || fileType === 'video',
       };
@@ -110,18 +116,30 @@ export async function POST(req: NextRequest) {
 
     await logSystemEvent({
       type: 'UPLOAD',
-      message: `${uploadedResults.length} file diunggah ke ${category} untuk Sabat ${sabbathTitle}`,
+      message: `${uploadedResults.length} berkas diunggah ke ${destination.folderPath}`,
       userId: session?.uid,
-      metadata: { count: uploadedResults.length, targetSabbath: targetSabbathDate },
+      metadata: {
+        count: uploadedResults.length,
+        category,
+        sabbathDate: targetSabbathDate,
+        folderPath: destination.folderPath,
+      },
     });
 
     return NextResponse.json({
       success: true,
-      message: `${uploadedResults.length} file berhasil diunggah`,
+      message: `${uploadedResults.length} berkas berhasil diunggah ke Sabat ${destination.sabbathTitle}`,
+      destination: {
+        path: destination.folderPath,
+        sabbathTitle: destination.sabbathTitle,
+        sabbathDate: targetSabbathDate,
+        category,
+      },
       data: uploadedResults,
     });
   } catch (error) {
     console.error('API Upload error:', error);
-    return NextResponse.json({ success: false, error: 'Upload failed' }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : 'Proses upload berkas gagal';
+    return NextResponse.json({ success: false, error: errorMessage }, { status: 500 });
   }
 }

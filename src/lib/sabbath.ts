@@ -162,26 +162,18 @@ export function getCurrentQuarterInfo(baseDate: Date = new Date()): QuarterInfo 
 }
 
 /**
- * Returns the next upcoming Sabbath information
+/**
+ * Returns the nearest active Sabbath information:
+ * - On Sunday through Friday: returns the upcoming Saturday.
+ * - On Saturday (00:00 to 23:59 WITA): returns the current Saturday (active Sabbath).
+ * - After Saturday passes (Sunday 00:00 WITA onwards): rolls over to the next upcoming Saturday.
  */
-export function getNextSabbath(baseDate: Date = new Date()): SabbathInfo {
-  const { year, month, day, dayOfWeek, hours, minutes, dateStr } = getWitaDateParts(baseDate);
+export function getNearestSabbath(baseDate: Date = new Date()): SabbathInfo {
+  const { year, month, day, dayOfWeek, dateStr } = getWitaDateParts(baseDate);
 
-  let daysUntilNextSabbath: number;
-
-  if (dayOfWeek === 6) {
-    // Today is Sabbath (Saturday)
-    // If before sunset (approx 18:30 WITA), today is still current Sabbath
-    if (hours < 18 || (hours === 18 && minutes < 30)) {
-      daysUntilNextSabbath = 0;
-    } else {
-      // Past sunset on Sabbath -> next Sabbath is in 7 days
-      daysUntilNextSabbath = 7;
-    }
-  } else {
-    // Days until next Saturday (dayOfWeek: Sunday=0..Friday=5)
-    daysUntilNextSabbath = 6 - dayOfWeek;
-  }
+  // If today is Saturday (dayOfWeek === 6), target is today (0 days)
+  // Otherwise, days until next Saturday (Sunday=0 -> 6 days, Friday=5 -> 1 day)
+  const daysUntilNextSabbath = dayOfWeek === 6 ? 0 : 6 - dayOfWeek;
 
   const targetUtc = new Date(Date.UTC(year, month - 1, day + daysUntilNextSabbath));
   const tYear = targetUtc.getUTCFullYear();
@@ -202,6 +194,13 @@ export function getNextSabbath(baseDate: Date = new Date()): SabbathInfo {
     isToday: targetDateStr === dateStr,
     isUpcoming: true,
   };
+}
+
+/**
+ * Returns upcoming Sabbath information (alias for getNearestSabbath)
+ */
+export function getNextSabbath(baseDate: Date = new Date()): SabbathInfo {
+  return getNearestSabbath(baseDate);
 }
 
 /**
@@ -235,8 +234,64 @@ export function getPreviousSabbath(baseDate: Date = new Date()): SabbathInfo {
 }
 
 /**
+ * Validates whether a given string is a valid Saturday (Sabbath) in YYYY-MM-DD format
+ */
+export function isValidSabbathDate(dateStr: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    return false;
+  }
+
+  const [yStr, mStr, dStr] = dateStr.split('-');
+  const year = parseInt(yStr, 10);
+  const month = parseInt(mStr, 10);
+  const day = parseInt(dStr, 10);
+
+  if (month < 1 || month > 12 || day < 1 || day > 31) {
+    return false;
+  }
+
+  const d = new Date(Date.UTC(year, month - 1, day));
+  if (
+    d.getUTCFullYear() !== year ||
+    d.getUTCMonth() !== month - 1 ||
+    d.getUTCDate() !== day
+  ) {
+    return false;
+  }
+
+  // Must be Saturday (6)
+  return d.getUTCDay() === 6;
+}
+
+/**
+ * Parses details for any valid Sabbath date
+ */
+export function parseSabbathDetails(dateStr: string): {
+  year: number;
+  month: number;
+  quarter: number;
+  quarterTitle: string;
+  formattedTitle: string;
+} {
+  const [yStr, mStr] = dateStr.split('-');
+  const year = parseInt(yStr, 10);
+  const month = parseInt(mStr, 10);
+  const quarter = getQuarterFromMonth(month);
+  const quarterTitle = getQuarterTitle(quarter);
+  const formattedTitle = formatSabbathTitle(dateStr);
+
+  return {
+    year,
+    month,
+    quarter,
+    quarterTitle,
+    formattedTitle,
+  };
+}
+
+/**
  * Returns the default upload Sabbath target according to system rules
  */
-export function getDefaultUploadSabbath(): SabbathInfo {
-  return getNextSabbath();
+export function getDefaultUploadSabbath(baseDate: Date = new Date()): SabbathInfo {
+  return getNearestSabbath(baseDate);
 }
