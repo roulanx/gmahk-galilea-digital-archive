@@ -5,14 +5,12 @@ import Link from 'next/link';
 import {
   Calendar,
   UploadCloud,
-  FolderOpen,
   Image as ImageIcon,
   Video as VideoIcon,
   FileText,
   Sparkles,
   ArrowRight,
   RefreshCw,
-  Clock,
 } from 'lucide-react';
 import { FileItem, SabbathInfo } from '@/lib/types';
 import MediaViewer from '@/components/MediaViewer';
@@ -65,242 +63,212 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 selection:bg-emerald-500 selection:text-white pb-24">
-      {/* 1. HERO SECTION */}
-      <section className="relative pt-20 pb-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto overflow-hidden">
-        {/* Subtle Ambient Background Gradients */}
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-emerald-950/20 blur-[120px] pointer-events-none rounded-full" />
-
-        <div className="relative text-center space-y-5 max-w-3xl mx-auto">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-950/40 border border-emerald-800/40 text-emerald-400 text-xs font-semibold tracking-wide">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-            GMAHK GALILEA BALIKPAPAN
+    <div className="min-h-screen bg-[#FAFAFA] pb-16 text-stone-900 font-sans">
+      <div className="max-w-6xl mx-auto px-4">
+        {/* 1. HERO SECTION */}
+        <section className="pt-20 pb-16 text-center space-y-6 max-w-2xl mx-auto">
+          <div className="flex justify-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/adventist-logo.svg" alt="Adventist" className="w-8 h-8" />
           </div>
-
-          <h1 className="text-4xl sm:text-6xl font-bold tracking-tight text-white leading-tight">
-            Digital Archive
+          
+          <h1 className="text-3xl sm:text-4xl font-bold text-stone-900 tracking-tight">
+            Dokumentasi Digital Galilea
           </h1>
-
-          <p className="text-base sm:text-lg text-zinc-400 font-normal leading-relaxed max-w-2xl mx-auto">
-            Pusat arsip dokumentasi sejarah, momen perbaktian, dan berkas pelayanan ibadah jemaat
-            terstruktur rapi dalam ekosistem cloud terpercaya.
+          
+          <p className="text-base text-stone-500 leading-relaxed">
+            Dokumentasi dan berkas pelayanan GMAHK Galilea.
           </p>
 
-          <div className="flex flex-wrap items-center justify-center gap-3.5 pt-4">
+          <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
             <Link
               href="/archive"
-              className="flex items-center gap-2 px-6 py-3 rounded-full bg-zinc-100 hover:bg-white text-zinc-950 font-semibold text-sm transition-all duration-200 shadow-md hover:scale-105"
+              className="inline-flex items-center justify-center bg-[#4A7729] hover:bg-[#3D6422] text-white rounded-full px-6 py-3 text-sm font-medium transition-colors"
             >
-              <FolderOpen className="w-4 h-4 text-emerald-700" />
-              Eksplorasi Arsip
+              Lihat Dokumentasi
             </Link>
             <Link
               href="/upload"
-              className="flex items-center gap-2 px-6 py-3 rounded-full bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-800 font-medium text-sm transition-all duration-200 hover:scale-105"
+              className="inline-flex items-center justify-center border border-stone-300 hover:bg-stone-50 text-stone-700 rounded-full px-6 py-3 text-sm font-medium transition-colors"
             >
-              <UploadCloud className="w-4 h-4 text-emerald-400" />
               Unggah Berkas
             </Link>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* 2. THIS SABBATH SPOTLIGHT */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-16">
-        <div className="relative p-6 sm:p-8 rounded-3xl bg-gradient-to-br from-zinc-900/90 via-zinc-900/40 to-zinc-900/90 border border-zinc-800/80 shadow-2xl backdrop-blur-xl overflow-hidden">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-emerald-400">
-                <Calendar className="w-4 h-4" />
-                This Sabbath
+        {/* 2. THIS SABBATH SPOTLIGHT */}
+        <section className="mb-12">
+          <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-sm text-stone-500 font-medium">
+                  <Calendar className="w-4 h-4" />
+                  Sabat Terdekat
+                </div>
+                <h2 className="text-xl font-semibold text-stone-900">
+                  {sabbathInfo ? sabbathInfo.formattedTitle : 'Memuat Sabat...'}
+                </h2>
+                <p className="text-xs text-stone-400">
+                  WITA • {sabbathInfo?.quarterTitle || 'Triwulan III'}
+                </p>
               </div>
-              <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
-                {sabbathInfo ? sabbathInfo.formattedTitle : 'Memuat Sabat...'}
-              </h2>
-              <p className="text-xs sm:text-sm text-zinc-400 flex items-center gap-2">
-                <Clock className="w-3.5 h-3.5 text-zinc-500" />
-                WITA (Asia/Makassar) • {sabbathInfo?.quarterTitle || 'Triwulan III'}
-              </p>
-            </div>
 
-            <div className="flex flex-wrap items-center gap-3">
-              <Link
-                href={`/archive?sabbath=${sabbathInfo?.date || ''}&category=documentation`}
-                className="px-4 py-2.5 rounded-2xl bg-zinc-800/80 hover:bg-zinc-700 text-zinc-200 text-xs font-semibold flex items-center gap-2 transition-colors"
-              >
-                <ImageIcon className="w-4 h-4 text-emerald-400" />
-                Dokumentasi
-              </Link>
-              <Link
-                href={`/archive?sabbath=${sabbathInfo?.date || ''}&category=worship`}
-                className="px-4 py-2.5 rounded-2xl bg-zinc-800/80 hover:bg-zinc-700 text-zinc-200 text-xs font-semibold flex items-center gap-2 transition-colors"
-              >
-                <FileText className="w-4 h-4 text-emerald-400" />
-                File Ibadah
-              </Link>
-              <Link
-                href={`/upload?sabbath=${sabbathInfo?.date || ''}`}
-                className="px-4 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-2 transition-all shadow-md"
-              >
-                <UploadCloud className="w-4 h-4" />
-                Unggah ke Sabat Ini
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 3. QUICK ACCESS */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-20">
-        <div className="mb-6 flex items-center justify-between">
-          <h3 className="text-lg font-semibold tracking-tight text-white">Quick Access</h3>
-          <span className="text-xs text-zinc-500">Penyimpanan Terpisah</span>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Card 1: Dokumentasi */}
-          <Link
-            href="/archive?category=documentation"
-            className="group relative p-8 rounded-3xl bg-zinc-900/50 hover:bg-zinc-900/80 border border-zinc-800/80 hover:border-zinc-700/80 transition-all duration-300 shadow-lg flex flex-col justify-between"
-          >
-            <div className="space-y-4">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-950/60 border border-emerald-800/40 text-emerald-400 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <ImageIcon className="w-6 h-6" />
-              </div>
-              <div>
-                <h4 className="text-xl font-bold text-white group-hover:text-emerald-300 transition-colors">
+              <div className="flex flex-wrap items-center gap-2">
+                <Link
+                  href={`/archive?sabbath=${sabbathInfo?.date || ''}&category=documentation`}
+                  className="inline-flex items-center gap-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-medium rounded-lg px-3 py-2 transition-colors"
+                >
+                  <ImageIcon className="w-3.5 h-3.5" />
                   Dokumentasi
-                </h4>
-                <p className="text-sm text-zinc-400 mt-2 leading-relaxed">
-                  Foto dan rekaman video kegiatan Sabat, pelayanan persekutuan, ibadah syukur, dan
-                  momen bersejarah gereja.
-                </p>
+                </Link>
+                <Link
+                  href={`/archive?sabbath=${sabbathInfo?.date || ''}&category=worship`}
+                  className="inline-flex items-center gap-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-medium rounded-lg px-3 py-2 transition-colors"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  Berkas Ibadah
+                </Link>
+                <Link
+                  href={`/upload?sabbath=${sabbathInfo?.date || ''}`}
+                  className="inline-flex items-center gap-1.5 bg-[#4A7729] hover:bg-[#3D6422] text-white text-xs font-medium rounded-lg px-3 py-2 transition-colors shadow-sm"
+                >
+                  <UploadCloud className="w-3.5 h-3.5" />
+                  Unggah ke Sabat Ini
+                </Link>
               </div>
             </div>
-            <div className="mt-8 flex items-center gap-2 text-xs font-semibold text-emerald-400">
-              Buka Kategori Dokumentasi
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </div>
-          </Link>
-
-          {/* Card 2: File Ibadah */}
-          <Link
-            href="/archive?category=worship"
-            className="group relative p-8 rounded-3xl bg-zinc-900/50 hover:bg-zinc-900/80 border border-zinc-800/80 hover:border-zinc-700/80 transition-all duration-300 shadow-lg flex flex-col justify-between"
-          >
-            <div className="space-y-4">
-              <div className="w-12 h-12 rounded-2xl bg-teal-950/60 border border-teal-800/40 text-teal-400 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <FileText className="w-6 h-6" />
-              </div>
-              <div>
-                <h4 className="text-xl font-bold text-white group-hover:text-teal-300 transition-colors">
-                  File Ibadah
-                </h4>
-                <p className="text-sm text-zinc-400 mt-2 leading-relaxed">
-                  Tata ibadah (PDF), slide khotbah PowerPoint, lembar warta, partitur lagu pujian,
-                  dan materi sekolah Sabat.
-                </p>
-              </div>
-            </div>
-            <div className="mt-8 flex items-center gap-2 text-xs font-semibold text-teal-400">
-              Buka Kategori File Ibadah
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </div>
-          </Link>
-        </div>
-      </section>
-
-      {/* 4. FROM THE ARCHIVE (RANDOM SHOWCASE) */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-20">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-emerald-400">
-              <Sparkles className="w-3.5 h-3.5" />
-              From the Archive
-            </div>
-            <h3 className="text-xl font-bold text-white mt-1">Koleksi Kenangan Acak</h3>
           </div>
+        </section>
 
-          <button
-            onClick={handleShuffle}
-            disabled={loadingRandom}
-            className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs text-zinc-300 transition-colors"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loadingRandom ? 'animate-spin' : ''}`} />
-            Acak Ulang
-          </button>
-        </div>
-
-        {randomFiles.length === 0 ? (
-          <div className="p-12 text-center rounded-3xl bg-zinc-900/30 border border-zinc-800/60 text-zinc-500">
-            Belum ada media foto/video yang diindeks.
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-            {randomFiles.map((file, idx) => (
-              <div
-                key={file.id}
-                onClick={() => setSelectedFileIndex(idx)}
-                className="group relative aspect-square rounded-2xl bg-zinc-900 overflow-hidden border border-zinc-800/80 hover:border-emerald-700/60 cursor-pointer shadow-md transition-all duration-300 hover:scale-[1.02]"
-              >
-                {file.thumbnailUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={file.thumbnailUrl}
-                    alt={file.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    loading="lazy"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-zinc-600">
-                    {file.fileType === 'video' ? (
-                      <VideoIcon className="w-8 h-8" />
-                    ) : (
-                      <ImageIcon className="w-8 h-8" />
-                    )}
-                  </div>
-                )}
-
-                {/* Badge File Type */}
-                <div className="absolute top-2.5 right-2.5 p-1.5 rounded-lg bg-black/60 backdrop-blur-md text-white">
-                  {file.fileType === 'video' ? (
-                    <VideoIcon className="w-3.5 h-3.5 text-emerald-400" />
-                  ) : (
-                    <ImageIcon className="w-3.5 h-3.5 text-zinc-300" />
-                  )}
-                </div>
-
-                {/* Bottom Overlay Title */}
-                <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/90 via-black/50 to-transparent">
-                  <p className="text-xs font-semibold text-white truncate">{file.name}</p>
-                  <p className="text-[10px] text-zinc-400 truncate">{file.sabbathTitle}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* 5. EXPLORE ARCHIVE CTA */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="p-8 sm:p-12 rounded-3xl bg-gradient-to-r from-emerald-950/40 via-zinc-900/60 to-zinc-900 border border-emerald-900/30 text-center space-y-4">
-          <h3 className="text-2xl sm:text-3xl font-bold text-white">
-            Jelajahi Arsip Tahun & Triwulan
-          </h3>
-          <p className="text-sm text-zinc-400 max-w-xl mx-auto">
-            Temukan berkas ibadah dan dokumentasi dari tahun ke tahun dengan navigasi folder Sabat
-            yang terorganisir rapi.
-          </p>
-          <div className="pt-2">
+        {/* 3. QUICK ACCESS */}
+        <section className="mb-16">
+          <h3 className="text-lg font-semibold text-stone-900 mb-4">Akses Cepat</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Link
-              href="/archive"
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm transition-transform hover:scale-105 shadow-lg shadow-emerald-900/20"
+              href="/archive?category=documentation"
+              className="group bg-white border border-stone-200 rounded-2xl p-6 hover:shadow-md hover:border-stone-300 transition-all flex flex-col justify-between min-h-[140px]"
             >
-              Buka Seluruh Arsip <ArrowRight className="w-4 h-4" />
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-[#E8F0E0] rounded-xl text-[#4A7729]">
+                  <ImageIcon className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="text-base font-semibold text-stone-900">Dokumentasi</h4>
+                  <p className="text-sm text-stone-500 mt-1">
+                    Foto dan rekaman video kegiatan Sabat, pelayanan, dan momen gereja.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1 text-sm font-medium text-[#4A7729] mt-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                Lihat Koleksi <ArrowRight className="w-4 h-4" />
+              </div>
+            </Link>
+
+            <Link
+              href="/archive?category=worship"
+              className="group bg-white border border-stone-200 rounded-2xl p-6 hover:shadow-md hover:border-stone-300 transition-all flex flex-col justify-between min-h-[140px]"
+            >
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-[#E8F0E0] rounded-xl text-[#4A7729]">
+                  <FileText className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="text-base font-semibold text-stone-900">Berkas Ibadah</h4>
+                  <p className="text-sm text-stone-500 mt-1">
+                    Tata ibadah, slide khotbah, warta, partitur, dan materi sekolah Sabat.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1 text-sm font-medium text-[#4A7729] mt-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                Lihat Berkas <ArrowRight className="w-4 h-4" />
+              </div>
             </Link>
           </div>
-        </div>
-      </section>
+        </section>
+
+        {/* 4. FROM THE ARCHIVE */}
+        <section className="mb-16">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="flex items-center gap-2 text-lg font-semibold text-stone-900">
+              <Sparkles className="w-5 h-5 text-[#4A7729]" />
+              Dari Arsip
+            </h3>
+            <button
+              onClick={handleShuffle}
+              disabled={loadingRandom}
+              className="flex items-center gap-1.5 bg-stone-100 hover:bg-stone-200 text-stone-600 rounded-full px-3 py-1.5 text-xs font-medium transition-colors"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loadingRandom ? 'animate-spin' : ''}`} />
+              Acak
+            </button>
+          </div>
+
+          {randomFiles.length === 0 ? (
+            <div className="p-8 text-center rounded-2xl bg-white border border-stone-200 text-stone-500 text-sm">
+              Belum ada media foto/video.
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+              {randomFiles.map((file, idx) => (
+                <div
+                  key={file.id}
+                  onClick={() => setSelectedFileIndex(idx)}
+                  className="group relative bg-white border border-stone-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md cursor-pointer transition-all flex flex-col"
+                >
+                  <div className="aspect-square bg-stone-100 relative overflow-hidden">
+                    {file.thumbnailUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={file.thumbnailUrl}
+                        alt={file.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-stone-400">
+                        {file.fileType === 'video' ? (
+                          <VideoIcon className="w-8 h-8" />
+                        ) : (
+                          <ImageIcon className="w-8 h-8" />
+                        )}
+                      </div>
+                    )}
+
+                    <div className="absolute top-2 right-2 p-1.5 rounded-md bg-white/90 shadow-sm text-stone-700">
+                      {file.fileType === 'video' ? (
+                        <VideoIcon className="w-3.5 h-3.5" />
+                      ) : (
+                        <ImageIcon className="w-3.5 h-3.5" />
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-white">
+                    <p className="text-xs font-medium text-stone-900 truncate">{file.name}</p>
+                    <p className="text-[10px] text-stone-500 truncate mt-0.5">{file.sabbathTitle}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* 5. EXPLORE ARCHIVE CTA */}
+        <section className="bg-stone-50 border border-stone-200 rounded-2xl p-8 text-center max-w-3xl mx-auto">
+          <h3 className="text-xl font-semibold text-stone-900 mb-2">
+            Jelajahi Seluruh Arsip
+          </h3>
+          <p className="text-sm text-stone-500 mb-6">
+            Temukan seluruh berkas dan dokumentasi dari tahun ke tahun.
+          </p>
+          <Link
+            href="/archive"
+            className="inline-flex items-center gap-2 bg-[#4A7729] hover:bg-[#3D6422] text-white text-sm font-medium rounded-full px-6 py-2.5 transition-colors"
+          >
+            Buka Arsip <ArrowRight className="w-4 h-4" />
+          </Link>
+        </section>
+      </div>
 
       {/* Universal Media Viewer Modal */}
       {selectedFileIndex !== null && (

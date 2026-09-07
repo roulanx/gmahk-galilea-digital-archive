@@ -13,6 +13,7 @@ import {
   Video,
   Presentation,
   FileSpreadsheet,
+  AlertTriangle
 } from 'lucide-react';
 
 interface MediaViewerProps {
@@ -33,7 +34,8 @@ export default function MediaViewer({
   const { role } = useAuth();
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [prevInitial, setPrevInitial] = useState(initialIndex);
-  const [deleting, setDeleting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Sync index during render if initialIndex changed (React recommended pattern)
   if (initialIndex !== prevInitial) {
@@ -53,6 +55,7 @@ export default function MediaViewer({
     if (!isOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (showDeleteConfirm) return; // Disable navigation when confirm is open
       if (e.key === 'Escape') onClose();
       if (e.key === 'ArrowRight') handleNext();
       if (e.key === 'ArrowLeft') handlePrev();
@@ -60,25 +63,25 @@ export default function MediaViewer({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, handleNext, handlePrev, onClose]);
+  }, [isOpen, handleNext, handlePrev, onClose, showDeleteConfirm]);
 
   if (!isOpen || files.length === 0) return null;
 
   const currentFile = files[currentIndex];
   if (!currentFile) return null;
 
-  const handleDelete = async () => {
+  const handleDeleteClick = () => {
     if (role !== 'admin') {
       alert('Hanya Admin yang berhak menghapus berkas.');
       return;
     }
+    setShowDeleteConfirm(true);
+  };
 
-    if (!confirm(`Pindahkan "${currentFile.name}" ke Sampah Google Drive?`)) {
-      return;
-    }
-
+  const confirmDelete = async () => {
+    setShowDeleteConfirm(false);
     try {
-      setDeleting(true);
+      setIsDeleting(true);
       const res = await fetch('/api/admin/trash', {
         method: 'POST',
         headers: {
@@ -107,7 +110,7 @@ export default function MediaViewer({
       console.error(err);
       alert('Terjadi kesalahan jaringan.');
     } finally {
-      setDeleting(false);
+      setIsDeleting(false);
     }
   };
 
@@ -115,17 +118,17 @@ export default function MediaViewer({
     switch (currentFile.fileType) {
       case 'photo':
         return (
-          <div className="relative w-full h-[70vh] flex items-center justify-center">
+          <div className="relative w-full h-[75vh] flex items-center justify-center p-4">
             {currentFile.thumbnailUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={currentFile.thumbnailUrl}
                 alt={currentFile.name}
-                className="max-h-full max-w-full object-contain rounded-lg shadow-2xl"
+                className="max-h-full max-w-full object-contain drop-shadow-2xl"
               />
             ) : (
-              <div className="flex flex-col items-center justify-center text-zinc-400 gap-3">
-                <FileText className="w-16 h-16 text-zinc-500" />
+              <div className="flex flex-col items-center justify-center text-white/50 gap-4">
+                <FileText className="w-16 h-16 opacity-50" />
                 <p>Pratinjau gambar belum tersedia</p>
               </div>
             )}
@@ -134,7 +137,7 @@ export default function MediaViewer({
 
       case 'video':
         return (
-          <div className="w-full max-w-4xl max-h-[70vh] aspect-video bg-black rounded-2xl overflow-hidden flex items-center justify-center shadow-2xl">
+          <div className="w-full max-w-5xl max-h-[75vh] aspect-video bg-black rounded-2xl overflow-hidden flex items-center justify-center shadow-2xl">
             {currentFile.webViewLink ? (
               <iframe
                 src={`${currentFile.webViewLink.replace('/view', '/preview')}`}
@@ -142,8 +145,8 @@ export default function MediaViewer({
                 allow="autoplay"
               ></iframe>
             ) : (
-              <div className="text-center text-zinc-400">
-                <Video className="w-16 h-16 mx-auto mb-2 text-zinc-600" />
+              <div className="text-center text-white/50">
+                <Video className="w-16 h-16 mx-auto mb-4 opacity-50" />
                 <p>Pemutar video Google Drive</p>
               </div>
             )}
@@ -152,7 +155,7 @@ export default function MediaViewer({
 
       case 'pdf':
         return (
-          <div className="w-full max-w-4xl h-[70vh] bg-zinc-900 rounded-2xl overflow-hidden shadow-2xl flex flex-col">
+          <div className="w-full max-w-5xl h-[80vh] bg-white rounded-2xl overflow-hidden shadow-2xl flex flex-col">
             <iframe
               src={currentFile.webViewLink || `https://docs.google.com/viewer?url=${encodeURIComponent(currentFile.webContentLink || '')}&embedded=true`}
               className="w-full flex-1 border-0"
@@ -163,29 +166,29 @@ export default function MediaViewer({
 
       default:
         return (
-          <div className="w-full max-w-lg p-8 rounded-3xl bg-zinc-900 border border-zinc-800 text-center space-y-4 shadow-2xl">
-            <div className="w-16 h-16 mx-auto rounded-2xl bg-zinc-800 flex items-center justify-center text-emerald-400">
+          <div className="w-full max-w-md p-10 rounded-3xl bg-white text-center shadow-2xl flex flex-col items-center">
+            <div className="w-20 h-20 mb-6 rounded-full bg-stone-50 flex items-center justify-center text-[#4A7729]">
               {currentFile.fileType === 'presentation' ? (
-                <Presentation className="w-8 h-8" />
+                <Presentation className="w-10 h-10" />
               ) : currentFile.fileType === 'spreadsheet' ? (
-                <FileSpreadsheet className="w-8 h-8" />
+                <FileSpreadsheet className="w-10 h-10" />
               ) : (
-                <FileText className="w-8 h-8" />
+                <FileText className="w-10 h-10" />
               )}
             </div>
-            <h3 className="text-lg font-semibold text-zinc-100 break-words">{currentFile.name}</h3>
-            <p className="text-xs text-zinc-400">
+            <h3 className="text-xl font-medium text-stone-900 mb-2 break-words leading-tight">{currentFile.name}</h3>
+            <p className="text-sm text-stone-500 mb-8">
               Dokumen ini dapat dibuka langsung di Google Drive atau diunduh ke perangkat Anda.
             </p>
-            <div className="flex items-center justify-center gap-3 pt-2">
+            <div className="flex items-center justify-center">
               {currentFile.webViewLink && (
                 <a
                   href={currentFile.webViewLink}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold"
+                  className="flex items-center gap-2 px-6 py-3 rounded-full bg-[#4A7729] hover:bg-[#3D6422] text-white text-sm font-medium transition-colors shadow-sm"
                 >
-                  <ExternalLink className="w-3.5 h-3.5" /> Buka di Drive
+                  <ExternalLink className="w-4 h-4" /> Buka di Drive
                 </a>
               )}
             </div>
@@ -195,44 +198,46 @@ export default function MediaViewer({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-xl"
+      onClick={onClose}
+    >
       {/* Top Header Bar */}
-      <div className="absolute top-0 left-0 right-0 p-4 flex items-center justify-between text-white z-10 bg-gradient-to-b from-black/60 to-transparent">
-        <div className="max-w-xl truncate">
-          <p className="text-sm font-semibold truncate">{currentFile.name}</p>
-          <p className="text-xs text-zinc-400">
-            {currentFile.sabbathTitle} • {currentFile.category === 'documentation' ? 'Dokumentasi' : 'File Ibadah'}
-          </p>
+      <div 
+        className="absolute top-0 left-0 right-0 p-6 flex items-start justify-between text-white z-20 pointer-events-none"
+      >
+        <div className="max-w-2xl">
+          {/* Spacing for alignment if needed */}
         </div>
 
-        <div className="flex items-center gap-3">
-          {/* Action buttons */}
+        <div className="flex items-center gap-3 ml-auto pointer-events-auto">
           {currentFile.webViewLink && (
             <a
               href={currentFile.webViewLink}
               target="_blank"
               rel="noopener noreferrer"
-              className="p-2 rounded-full bg-zinc-800/80 hover:bg-zinc-700 text-zinc-200 transition-colors"
+              className="p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
               title="Buka di Google Drive"
             >
-              <ExternalLink className="w-4 h-4" />
+              <ExternalLink className="w-5 h-5" />
             </a>
           )}
 
           {role === 'admin' && (
             <button
-              onClick={handleDelete}
-              disabled={deleting}
-              className="p-2 rounded-full bg-red-950/80 hover:bg-red-800 text-red-300 transition-colors"
-              title="Pindahkan ke Sampah Google Drive (Khusus Admin)"
+              onClick={handleDeleteClick}
+              disabled={isDeleting}
+              className="p-3 rounded-full bg-white/10 hover:bg-red-500/90 text-white transition-colors"
+              title="Hapus Berkas (Khusus Admin)"
             >
-              <Trash2 className="w-4 h-4" />
+              <Trash2 className="w-5 h-5" />
             </button>
           )}
 
           <button
             onClick={onClose}
-            className="p-2 rounded-full bg-zinc-800/80 hover:bg-zinc-700 text-zinc-200 transition-colors"
+            className="p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors ml-2"
+            title="Tutup"
           >
             <X className="w-5 h-5" />
           </button>
@@ -240,14 +245,17 @@ export default function MediaViewer({
       </div>
 
       {/* Main View Area */}
-      <div className="relative w-full h-full flex items-center justify-center p-6">
+      <div 
+        className="relative w-full h-full flex items-center justify-center p-8 pb-32"
+        onClick={(e) => e.stopPropagation()}
+      >
         {renderContent()}
 
         {/* Previous Navigation */}
         {currentIndex > 0 && (
           <button
             onClick={handlePrev}
-            className="absolute left-6 top-1/2 -translate-y-1/2 p-3 rounded-full bg-zinc-800/80 hover:bg-zinc-700 text-white transition-colors"
+            className="absolute left-8 top-1/2 -translate-y-1/2 p-4 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors shadow-lg"
           >
             <ChevronLeft className="w-6 h-6" />
           </button>
@@ -257,17 +265,67 @@ export default function MediaViewer({
         {currentIndex < files.length - 1 && (
           <button
             onClick={handleNext}
-            className="absolute right-6 top-1/2 -translate-y-1/2 p-3 rounded-full bg-zinc-800/80 hover:bg-zinc-700 text-white transition-colors"
+            className="absolute right-8 top-1/2 -translate-y-1/2 p-4 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors shadow-lg"
           >
             <ChevronRight className="w-6 h-6" />
           </button>
         )}
       </div>
 
-      {/* Bottom Counter */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full bg-zinc-800/80 backdrop-blur-md text-xs text-zinc-300">
-        {currentIndex + 1} dari {files.length}
+      {/* Bottom Info Bar */}
+      <div 
+        className="absolute bottom-0 left-0 right-0 p-6 flex flex-col items-center justify-center z-10 pointer-events-none"
+      >
+        <div 
+          className="bg-black/40 backdrop-blur-md px-8 py-5 rounded-2xl flex flex-col items-center max-w-3xl w-full text-center border border-white/10 shadow-2xl pointer-events-auto"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <h2 className="text-white font-medium text-lg mb-2 truncate w-full">{currentFile.name}</h2>
+          <div className="flex items-center justify-center gap-3 text-sm text-white/70 flex-wrap">
+            <span>{currentFile.sabbathTitle}</span>
+            <span className="w-1 h-1 rounded-full bg-white/30"></span>
+            <span>{currentFile.category === 'documentation' ? 'Dokumentasi' : 'File Ibadah'}</span>
+            <span className="w-1 h-1 rounded-full bg-white/30"></span>
+            <span className="uppercase">{currentFile.fileType}</span>
+            <span className="w-1 h-1 rounded-full bg-white/30"></span>
+            <span>{currentIndex + 1} dari {files.length}</span>
+          </div>
+        </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div 
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div 
+            className="bg-white rounded-3xl p-8 max-w-sm w-full mx-4 shadow-2xl flex flex-col items-center text-center"
+          >
+            <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center mb-5">
+              <AlertTriangle className="w-7 h-7 text-red-600" />
+            </div>
+            <h3 className="text-xl font-medium text-stone-900 mb-2">Hapus Berkas?</h3>
+            <p className="text-stone-500 mb-8 leading-relaxed">
+              Apakah Anda yakin ingin memindahkan <span className="font-medium text-stone-700">{currentFile.name}</span> ke Sampah Google Drive?
+            </p>
+            <div className="flex flex-col gap-3 w-full">
+              <button
+                onClick={confirmDelete}
+                className="w-full py-3.5 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white font-medium transition-colors"
+              >
+                Ya, Pindahkan
+              </button>
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="w-full py-3.5 px-4 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 font-medium transition-colors"
+              >
+                Batal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
