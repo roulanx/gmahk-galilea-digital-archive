@@ -274,16 +274,18 @@ function ArchiveContent() {
             {getEmptyMessage()}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-10">
             {filteredFiles.map((file, idx) => {
+              // Visual rhythm: Featured items every 5th image
+              const isFeatured = idx % 5 === 0 && filteredFiles.length > 2;
               return (
                 <div
                   key={file.id}
                   onClick={() => setViewerIndex(idx)}
-                  className="group cursor-pointer flex flex-col"
+                  className={`group cursor-pointer flex flex-col ${isFeatured ? 'sm:col-span-2' : 'col-span-1'}`}
                 >
                   {/* Thumbnail Frame */}
-                  <div className="relative aspect-[4/3] w-full rounded-2xl overflow-hidden bg-black/5 border border-black/10">
+                  <div className={`relative w-full rounded-2xl overflow-hidden bg-black/5 border border-black/10 ${isFeatured ? 'aspect-[16/9]' : 'aspect-[4/3]'}`}>
                     {file.thumbnailUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -295,26 +297,26 @@ function ArchiveContent() {
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-black/30">
                         {file.fileType === 'video' ? (
-                          <VideoIcon className="w-10 h-10" />
+                          <VideoIcon className={isFeatured ? "w-14 h-14" : "w-10 h-10"} />
                         ) : file.fileType === 'photo' ? (
-                          <ImageIcon className="w-10 h-10" />
+                          <ImageIcon className={isFeatured ? "w-14 h-14" : "w-10 h-10"} />
                         ) : (
-                          <FileText className="w-10 h-10" />
+                          <FileText className={isFeatured ? "w-14 h-14" : "w-10 h-10"} />
                         )}
                       </div>
                     )}
 
-                    <div className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full bg-black/70 backdrop-blur-md text-white text-[10px] font-mono tracking-wider uppercase">
+                    <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-md text-white text-[10px] font-mono tracking-wider uppercase">
                       {file.fileType}
                     </div>
                   </div>
 
                   {/* Metadata */}
-                  <div className="pt-2.5">
-                    <p className="text-xs font-medium text-black group-hover:text-black/70 transition-colors truncate">
+                  <div className="pt-3.5 flex flex-col justify-start">
+                    <p className={`font-medium text-black group-hover:text-black/70 transition-colors truncate ${isFeatured ? 'text-base' : 'text-xs'}`}>
                       {file.name}
                     </p>
-                    <p className="text-[11px] text-black/40 mt-0.5">
+                    <p className={`text-black/40 mt-1 truncate ${isFeatured ? 'text-xs' : 'text-[11px]'}`}>
                       {file.sabbathTitle || 'Arsip Pelayanan'}
                     </p>
                   </div>

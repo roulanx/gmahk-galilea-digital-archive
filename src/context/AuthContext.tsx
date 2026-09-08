@@ -33,30 +33,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let unsubscribe = () => {};
     try {
-      unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-        setUser(currentUser);
-        if (currentUser) {
-          const email = currentUser.email?.toLowerCase() || '';
-          // Define Super Admin Email (should ideally match process.env but client-side we hardcode or fetch)
-          const superAdminEmail = 'admin@gmahk-galilea.org';
-          if (email === superAdminEmail || email === 'simatupangkevin9@gmail.com') {
-            setRole('admin');
+      if (auth) {
+        unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+          setUser(currentUser);
+          if (currentUser) {
+            const email = currentUser.email?.toLowerCase() || '';
+            const isAdmin =
+              email === 'admin@gmahk-galilea.org' || email === 'simatupangkevin9@gmail.com';
+            setRole(isAdmin ? 'admin' : 'viewer');
           } else {
             setRole('viewer');
           }
-        } else {
-          setRole('viewer');
-        }
+          setLoading(false);
+        });
+      } else {
         setLoading(false);
-      });
-    } catch {
-      setTimeout(() => setLoading(false), 0);
+      }
+    } catch (e) {
+      console.error('Firebase Auth listener error:', e);
+      setLoading(false);
     }
-
     return () => unsubscribe();
   }, []);
 
   const signInWithGoogle = async () => {
+    if (!auth) {
+      showToast({
+        type: 'error',
+        message: 'Authentication Not Configured',
+        description: 'Hubungi administrator untuk konfigurasi sistem.',
+      });
+      return;
+    }
     try {
       setLoading(true);
       await signInWithPopup(auth, googleProvider);
@@ -73,6 +81,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
+    if (!auth) return;
     try {
       await fbSignOut(auth);
     } catch {

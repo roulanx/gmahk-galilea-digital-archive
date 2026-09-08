@@ -264,6 +264,7 @@ export default function MediaViewer({
               disabled={isDeleting}
               className="p-3 rounded-full bg-white/10 hover:bg-white hover:text-black text-white transition-colors"
               title="Pindahkan ke Sampah"
+              aria-label="Pindahkan ke Sampah"
             >
               <Trash2 className="w-5 h-5" />
             </button>
@@ -273,6 +274,7 @@ export default function MediaViewer({
             onClick={onClose}
             className="p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors ml-2"
             title="Tutup"
+            aria-label="Tutup"
           >
             <X className="w-5 h-5" />
           </button>
@@ -291,6 +293,7 @@ export default function MediaViewer({
           <button
             onClick={handlePrev}
             className="absolute left-8 top-1/2 -translate-y-1/2 p-4 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors shadow-lg cursor-pointer"
+            aria-label="Sebelumnya"
           >
             <ChevronLeft className="w-6 h-6" />
           </button>
@@ -301,6 +304,7 @@ export default function MediaViewer({
           <button
             onClick={handleNext}
             className="absolute right-8 top-1/2 -translate-y-1/2 p-4 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors shadow-lg cursor-pointer"
+            aria-label="Selanjutnya"
           >
             <ChevronRight className="w-6 h-6" />
           </button>
