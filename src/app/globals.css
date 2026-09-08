@@ -1,14 +1,14 @@
 @import "tailwindcss";
 
 :root {
-  --background: #FFFFFF;
-  --foreground: #0A0A0A;
-  --surface: rgba(0, 0, 0, 0.02);
-  --surface-hover: rgba(0, 0, 0, 0.05);
-  --border: rgba(0, 0, 0, 0.08);
-  --border-strong: rgba(0, 0, 0, 0.16);
-  --muted: rgba(0, 0, 0, 0.60);
-  --muted-light: rgba(0, 0, 0, 0.40);
+  --background: #000000;
+  --foreground: #ffffff;
+  --surface: rgba(255, 255, 255, 0.03);
+  --surface-hover: rgba(255, 255, 255, 0.08);
+  --border: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.2);
+  --muted: rgba(255, 255, 255, 0.60);
+  --muted-light: rgba(255, 255, 255, 0.40);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -99,7 +99,7 @@ body {
 }
 
 @keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(15px); }
+  from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
@@ -108,11 +108,21 @@ body {
   100% { background-position: 200% 0; }
 }
 
+@keyframes subtleZoom {
+  from { transform: scale(1.05); }
+  to { transform: scale(1); }
+}
+
+.animate-subtle-zoom {
+  animation: subtleZoom 20s cubic-bezier(0.2, 0, 0.8, 1) forwards;
+}
+
 @media (prefers-reduced-motion) {
   .animate-fade-in,
   .animate-fade-in-up,
-  .animate-shimmer {
-    animation: none;
-    transition: none;
+  .animate-shimmer,
+  .animate-subtle-zoom {
+    animation: none !important;
+    transform: none !important;
   }
 }
