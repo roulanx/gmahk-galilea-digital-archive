@@ -9,26 +9,51 @@ export interface DriveFolderResult {
   isExisting: boolean;
 }
 
+import fs from 'fs';
+import path from 'path';
+
 /**
- * Returns an authenticated Google Drive client using Service Account credentials
+ * Returns an authenticated Google Drive client using:
+ * 1. Environment variables (FIREBASE_CLIENT_EMAIL & FIREBASE_PRIVATE_KEY)
+ * 2. Local service-account.json file
+ * 3. Google Application Default Credentials (ADC)
  */
 export function getGoogleDriveClient() {
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
   let privateKey = process.env.FIREBASE_PRIVATE_KEY;
 
-  if (!clientEmail || !privateKey) {
-    return null;
+  if (clientEmail && privateKey) {
+    privateKey = privateKey.replace(/\\n/g, '\n');
+    const auth = new google.auth.JWT({
+      email: clientEmail,
+      key: privateKey,
+      scopes: ['https://www.googleapis.com/auth/drive'],
+    });
+    return google.drive({ version: 'v3', auth });
   }
 
-  privateKey = privateKey.replace(/\\n/g, '\n');
+  // Check for local service-account.json in project root
+  const localServiceAccountPath = path.resolve(process.cwd(), 'service-account.json');
+  if (fs.existsSync(localServiceAccountPath)) {
+    const auth = new google.auth.GoogleAuth({
+      keyFile: localServiceAccountPath,
+      scopes: ['https://www.googleapis.com/auth/drive'],
+    });
+    return google.drive({ version: 'v3', auth });
+  }
 
-  const auth = new google.auth.JWT({
-    email: clientEmail,
-    key: privateKey,
-    scopes: ['https://www.googleapis.com/auth/drive'],
-  });
+  // Check for Google Application Default Credentials (ADC) file or GOOGLE_APPLICATION_CREDENTIALS
+  const appData = process.env.APPDATA || '';
+  const gcloudAdcPath = path.join(appData, 'gcloud', 'application_default_credentials.json');
+  const googleAppCreds = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  if ((googleAppCreds && fs.existsSync(googleAppCreds)) || (gcloudAdcPath && fs.existsSync(gcloudAdcPath))) {
+    const auth = new google.auth.GoogleAuth({
+      scopes: ['https://www.googleapis.com/auth/drive'],
+    });
+    return google.drive({ version: 'v3', auth });
+  }
 
-  return google.drive({ version: 'v3', auth });
+  return null;
 }
 
 /**
