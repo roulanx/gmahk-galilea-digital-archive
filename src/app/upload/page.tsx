@@ -5,23 +5,21 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   UploadCloud,
-  CheckCircle2,
-  AlertCircle,
+  Check,
   FileText,
   X,
-  Calendar,
   Image as ImageIcon,
-  RefreshCw,
+  ArrowRight,
 } from 'lucide-react';
 import { ArchiveCategory, SabbathInfo } from '@/lib/types';
-import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/context/ToastContext';
 
 function UploadContent() {
   const searchParams = useSearchParams();
   const querySabbath = searchParams.get('sabbath') || '';
   const queryCategory = searchParams.get('category') as ArchiveCategory | null;
 
-  const { role } = useAuth();
+  const { showToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [category, setCategory] = useState<ArchiveCategory>(queryCategory || 'documentation');
@@ -35,7 +33,6 @@ function UploadContent() {
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
-  const [uploadStatusText, setUploadStatusText] = useState<string>('');
   const [uploadSuccessData, setUploadSuccessData] = useState<{
     path: string;
     sabbathTitle: string;
@@ -43,7 +40,6 @@ function UploadContent() {
     sabbathDate: string;
     category: ArchiveCategory;
   } | null>(null);
-  const [errorMessage, setErrorMessage] = useState('');
 
   // 1. Fetch Sabbath destination from server (WITA calculation)
   useEffect(() => {
@@ -61,7 +57,6 @@ function UploadContent() {
         setPreviousSabbath(prevSab);
         setSabbathList(allQuarterSabs);
 
-        // If no query param was given, automatically default to nearest Sabbath
         if (!querySabbath) {
           setSelectedSabbathDate(defaultSab.date);
         }
@@ -82,11 +77,11 @@ function UploadContent() {
     (previousSabbath?.date === selectedSabbathDate ? previousSabbath : null);
 
   const activeFormattedTitle =
-    selectedSabbathInfo?.formattedTitle || defaultSabbath?.formattedTitle || 'Memuat...';
+    selectedSabbathInfo?.formattedTitle || defaultSabbath?.formattedTitle || 'Sebentar, kami sedang menyiapkannya...';
   const activeYear = selectedSabbathInfo?.year || defaultSabbath?.year || new Date().getFullYear();
   const activeQuarterTitle =
     selectedSabbathInfo?.quarterTitle || defaultSabbath?.quarterTitle || '';
-  const categoryLabel = category === 'documentation' ? 'Dokumentasi' : 'File Ibadah';
+  const categoryLabel = category === 'documentation' ? 'Dokumentasi' : 'Berkas Ibadah';
 
   const destinationBreadcrumb = `GMAHK Galilea / ${categoryLabel} / ${activeYear} / ${activeQuarterTitle} / ${activeFormattedTitle}`;
 
@@ -105,97 +100,114 @@ function UploadContent() {
   };
 
   const addFiles = (newFiles: File[]) => {
-    setSelectedFiles((prev) => [...prev, ...newFiles]);
+    const validFiles: File[] = [];
+
+    newFiles.forEach((file) => {
+      // Check large file warning (> 25MB)
+      if (file.size > 25 * 1024 * 1024) {
+        showToast({
+          type: 'warning',
+          message: 'Berkas ini cukup besar.',
+          description: `Proses unggah "${file.name}" mungkin membutuhkan waktu sedikit lebih lama.`,
+        });
+      }
+      validFiles.push(file);
+    });
+
+    setSelectedFiles((prev) => [...prev, ...validFiles]);
   };
 
   const removeFile = (index: number) => {
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleUploadSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (selectedFiles.length === 0) {
-      setErrorMessage('Pilih minimal satu berkas untuk diunggah.');
-      return;
-    }
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const handleStartUpload = async () => {
+    if (selectedFiles.length === 0 || !selectedSabbathDate) return;
 
     setUploading(true);
-    setUploadProgress(15);
-    setUploadStatusText('Menghubungkan ke folder Sabat...');
-    setErrorMessage('');
-    setUploadSuccessData(null);
+    setUploadProgress(10);
+
+    const formData = new FormData();
+    formData.append('category', category);
+    formData.append('sabbathDate', selectedSabbathDate);
+
+    selectedFiles.forEach((file) => {
+      formData.append('files', file);
+    });
 
     try {
-      const formData = new FormData();
-      formData.append('category', category);
-      if (selectedSabbathDate) {
-        formData.append('sabbathDate', selectedSabbathDate);
-      }
-
-      for (const file of selectedFiles) {
-        formData.append('files', file);
-      }
-
       setUploadProgress(40);
-      setUploadStatusText(`Mengunggah ${selectedFiles.length} berkas ke Google Drive...`);
-
       const res = await fetch('/api/upload', {
         method: 'POST',
-        headers: {
-          'x-dev-role': role,
-        },
         body: formData,
       });
 
       setUploadProgress(85);
-      setUploadStatusText('Menyimpan metadata dan mengindeks...');
-
       const json = await res.json();
+
       if (json.success) {
         setUploadProgress(100);
+        showToast({
+          type: 'success',
+          message: '✓ Berkas berhasil diunggah.',
+          description: 'Sudah tersimpan dan siap dilihat kembali.',
+        });
+
         setUploadSuccessData({
-          path: json.destination?.path || destinationBreadcrumb,
-          sabbathTitle: json.destination?.sabbathTitle || activeFormattedTitle,
+          path: json.data?.destination?.folderPath || destinationBreadcrumb,
+          sabbathTitle: activeFormattedTitle,
           count: selectedFiles.length,
-          sabbathDate: json.destination?.sabbathDate || selectedSabbathDate,
+          sabbathDate: selectedSabbathDate,
           category,
         });
+
         setSelectedFiles([]);
       } else {
-        setErrorMessage(json.error || 'Terjadi kesalahan saat mengunggah.');
+        throw new Error(json.error || 'Ada sedikit kendala.');
       }
-    } catch (err) {
-      console.error('Upload error:', err);
-      setErrorMessage('Gagal menghubungi server untuk proses upload.');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Ada sedikit kendala. Silakan coba lagi.';
+      showToast({
+        type: 'error',
+        message: 'Ada sedikit kendala.',
+        description: 'Silakan coba lagi.',
+      });
+      console.error(msg);
     } finally {
       setUploading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-white text-stone-900 selection:bg-[#4A7729] selection:text-white pb-32">
-      <div className="max-w-xl mx-auto px-6 pt-16 sm:pt-24">
-        {/* 1. EDITORIAL TITLE */}
-        <div className="space-y-3 mb-12">
-          <span className="text-xs font-semibold tracking-widest text-[#4A7729] uppercase">
-            Portal Pelayanan
+    <div className="min-h-screen bg-white text-black selection:bg-black selection:text-white pb-32">
+      <div className="max-w-3xl mx-auto px-6 sm:px-8">
+        {/* 1. EDITORIAL HEADER */}
+        <div className="pt-16 sm:pt-24 pb-10">
+          <span className="text-xs font-semibold tracking-widest text-black/50 uppercase">
+            PORTAL PELAYANAN
           </span>
-          <h1 className="text-3xl sm:text-5xl font-light tracking-tight text-stone-950">
-            Unggah Dokumentasi
+          <h1 className="text-3xl sm:text-5xl font-light tracking-tight text-black mt-2">
+            Unggah Berkas
           </h1>
-          <p className="text-sm text-stone-500">
+          <p className="text-sm text-black/60 mt-3">
             Simpan foto, rekaman video, dan berkas ibadah ke arsip resmi GMAHK Galilea.
           </p>
         </div>
 
-        {/* 2. SABBATH DESTINATION CONTEXT */}
-        <div className="py-6 border-y border-[#EEEEEC] mb-10 space-y-3">
+        {/* 2. AUTOMATIC SABBATH DESTINATION CONTEXT */}
+        <div className="py-6 border-y border-black/10 mb-10 space-y-3">
           <div className="flex items-baseline justify-between gap-4">
             <div>
-              <p className="text-xs font-normal text-stone-400 uppercase tracking-wider">
+              <p className="text-xs font-normal text-black/40 uppercase tracking-wider">
                 Sabat Tujuan
               </p>
-              <h2 className="text-xl sm:text-2xl font-normal text-stone-950 mt-0.5">
+              <h2 className="text-xl sm:text-2xl font-normal text-black mt-0.5">
                 {activeFormattedTitle}
               </h2>
             </div>
@@ -203,30 +215,30 @@ function UploadContent() {
             <button
               type="button"
               onClick={() => setShowDatePicker(!showDatePicker)}
-              className="text-xs font-medium text-[#4A7729] hover:text-[#3D6422] transition-colors cursor-pointer"
+              className="text-xs font-medium text-black hover:opacity-60 transition-opacity cursor-pointer underline underline-offset-4"
             >
               {showDatePicker ? 'Tutup Pilihan' : 'Ganti tanggal'}
             </button>
           </div>
 
-          <p className="text-xs text-stone-400 font-mono">
+          <p className="text-xs text-black/40 font-mono">
             {destinationBreadcrumb}
           </p>
 
-          {/* Collapsible Date Selector */}
+          {/* Collapsible Date Selector for older archives */}
           {showDatePicker && (
-            <div className="pt-4 mt-4 border-t border-[#EEEEEC] space-y-4 animate-in fade-in duration-200">
+            <div className="pt-4 mt-4 border-t border-black/10 space-y-4 animate-in fade-in duration-200">
               <div className="space-y-2">
-                <span className="text-xs text-stone-500 font-normal">Pilih Sabat Lain:</span>
+                <span className="text-xs text-black/60 font-normal">Pilih Sabat:</span>
                 <div className="flex flex-wrap gap-2">
                   {defaultSabbath && (
                     <button
                       type="button"
                       onClick={() => setSelectedSabbathDate(defaultSabbath.date)}
-                      className={`px-3 py-1.5 rounded-full text-xs transition-all cursor-pointer ${
+                      className={`px-3.5 py-1.5 rounded-full text-xs transition-all cursor-pointer ${
                         selectedSabbathDate === defaultSabbath.date
-                          ? 'bg-stone-950 text-white font-medium'
-                          : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                          ? 'bg-black text-white font-medium'
+                          : 'bg-black/5 text-black hover:bg-black/10'
                       }`}
                     >
                       Sabat Terdekat ({defaultSabbath.formattedTitle.split(' ').slice(0, 2).join(' ')})
@@ -236,10 +248,10 @@ function UploadContent() {
                     <button
                       type="button"
                       onClick={() => setSelectedSabbathDate(previousSabbath.date)}
-                      className={`px-3 py-1.5 rounded-full text-xs transition-all cursor-pointer ${
+                      className={`px-3.5 py-1.5 rounded-full text-xs transition-all cursor-pointer ${
                         selectedSabbathDate === previousSabbath.date
-                          ? 'bg-stone-950 text-white font-medium'
-                          : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                          ? 'bg-black text-white font-medium'
+                          : 'bg-black/5 text-black hover:bg-black/10'
                       }`}
                     >
                       Sabat Lalu ({previousSabbath.formattedTitle.split(' ').slice(0, 2).join(' ')})
@@ -252,7 +264,7 @@ function UploadContent() {
                 <select
                   value={selectedSabbathDate}
                   onChange={(e) => setSelectedSabbathDate(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl bg-stone-50 border border-stone-200 text-xs text-stone-800 focus:outline-none focus:border-stone-400 appearance-none cursor-pointer"
+                  className="w-full px-4 py-2.5 rounded-xl bg-black/5 border border-black/10 text-xs text-black focus:outline-none focus:border-black appearance-none cursor-pointer"
                 >
                   {sabbathList.map((sab) => (
                     <option key={sab.date} value={sab.date}>
@@ -260,242 +272,215 @@ function UploadContent() {
                     </option>
                   ))}
                 </select>
-                <Calendar className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none" />
               </div>
             </div>
           )}
         </div>
 
-        {/* Success Alert */}
-        {uploadSuccessData && (
-          <div className="mb-10 p-6 rounded-2xl bg-[#F0F6EB] border border-[#4A7729]/20 space-y-4 animate-in fade-in duration-300">
-            <div className="flex items-start gap-3">
-              <CheckCircle2 className="w-5 h-5 text-[#4A7729] shrink-0 mt-0.5" />
-              <div className="space-y-1">
-                <h3 className="font-medium text-sm text-stone-950">
-                  {uploadSuccessData.count} Berkas Berhasil Diunggah
-                </h3>
-                <p className="text-xs text-stone-600 leading-relaxed">
-                  Berkas telah disimpan dengan aman di Google Drive dan terindeks di arsip jemaat.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-4 pt-2">
-              <Link
-                href={`/archive?sabbath=${uploadSuccessData.sabbathDate}&category=${uploadSuccessData.category}`}
-                className="text-xs font-medium text-[#4A7729] hover:underline"
-              >
-                Lihat di Penjelajah Arsip →
-              </Link>
-              <button
-                type="button"
-                onClick={() => setUploadSuccessData(null)}
-                className="text-xs font-medium text-stone-600 hover:text-stone-900 cursor-pointer"
-              >
-                Unggah Berkas Lain
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Error Alert */}
-        {errorMessage && (
-          <div className="mb-10 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-3">
-            <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
-            <p>{errorMessage}</p>
-          </div>
-        )}
-
-        {/* MAIN UPLOAD FLOW */}
-        <form onSubmit={handleUploadSubmit} className="space-y-10">
-          {/* STEP 1: CATEGORY SELECTION */}
-          <div className="space-y-3">
-            <label className="text-sm font-normal text-stone-800 block">
-              Apa yang ingin Anda unggah?
-            </label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <button
-                type="button"
-                onClick={() => setCategory('documentation')}
-                className={`p-5 rounded-2xl text-left transition-all cursor-pointer border ${
-                  category === 'documentation'
-                    ? 'border-[#4A7729] bg-[#F0F6EB] shadow-sm'
-                    : 'border-stone-200 bg-white hover:border-stone-300'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <ImageIcon
-                    className={`w-5 h-5 ${
-                      category === 'documentation' ? 'text-[#4A7729]' : 'text-stone-400'
-                    }`}
-                  />
-                  {category === 'documentation' && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#4A7729]" />
-                  )}
-                </div>
-                <p className="font-medium text-sm text-stone-950">Dokumentasi</p>
-                <p className="text-xs text-stone-500 mt-1 leading-normal">
-                  Foto dan rekaman video kegiatan Sabat
-                </p>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setCategory('worship')}
-                className={`p-5 rounded-2xl text-left transition-all cursor-pointer border ${
-                  category === 'worship'
-                    ? 'border-[#4A7729] bg-[#F0F6EB] shadow-sm'
-                    : 'border-stone-200 bg-white hover:border-stone-300'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <FileText
-                    className={`w-5 h-5 ${
-                      category === 'worship' ? 'text-[#4A7729]' : 'text-stone-400'
-                    }`}
-                  />
-                  {category === 'worship' && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#4A7729]" />
-                  )}
-                </div>
-                <p className="font-medium text-sm text-stone-950">Berkas Ibadah</p>
-                <p className="text-xs text-stone-500 mt-1 leading-normal">
-                  Tata ibadah PDF, slide khotbah, warta jemaat
-                </p>
-              </button>
-            </div>
-          </div>
-
-          {/* STEP 2: LARGE MINIMALIST DROPZONE */}
-          <div className="space-y-3">
-            <div
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDragOver(true);
-              }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={handleFileDrop}
-              onClick={() => fileInputRef.current?.click()}
-              className={`p-12 sm:p-16 rounded-3xl border-2 border-dashed text-center cursor-pointer transition-all duration-300 ${
-                dragOver
-                  ? 'border-[#4A7729] bg-[#F0F6EB]/50'
-                  : 'border-stone-200 hover:border-stone-300 bg-stone-50/50 hover:bg-stone-50'
+        {/* 3. CATEGORY SELECTION (DOKUMENTASI VS BERKAS IBADAH) */}
+        <div className="mb-10 space-y-3">
+          <label className="text-xs font-normal text-black/50 uppercase tracking-wider block">
+            Pilih Kategori Berkas
+          </label>
+          <div className="grid grid-cols-2 gap-4">
+            <button
+              type="button"
+              onClick={() => setCategory('documentation')}
+              className={`p-5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between h-28 ${
+                category === 'documentation'
+                  ? 'border-black bg-black text-white shadow-sm'
+                  : 'border-black/10 bg-white hover:border-black/30 text-black'
               }`}
             >
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                onChange={handleFileInputChange}
-                className="hidden"
-                accept="image/*,video/*,application/pdf,.ppt,.pptx,.doc,.docx,.xls,.xlsx"
-              />
-              <div className="space-y-4 max-w-xs mx-auto">
-                <div className="w-12 h-12 mx-auto rounded-full bg-white border border-stone-200 flex items-center justify-center text-stone-400 shadow-2xs">
-                  <UploadCloud className="w-5 h-5 text-stone-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-normal text-stone-900">
-                    Tarik file ke sini
-                  </p>
-                  <p className="text-xs text-stone-400 mt-1">
-                    atau
-                  </p>
-                </div>
-                <div>
-                  <span className="inline-block px-5 py-2 rounded-full bg-white border border-stone-200 text-xs font-medium text-stone-700 hover:border-stone-300 shadow-2xs">
-                    Pilih Berkas
-                  </span>
-                </div>
-                <p className="text-[11px] text-stone-400 pt-2">
-                  Mendukung foto, video MP4, PDF, dan dokumen presentasi
+              <ImageIcon className={`w-5 h-5 ${category === 'documentation' ? 'text-white' : 'text-black/60'}`} />
+              <div>
+                <p className="text-sm font-medium">Dokumentasi</p>
+                <p className={`text-xs mt-0.5 ${category === 'documentation' ? 'text-white/70' : 'text-black/50'}`}>
+                  Foto dan video kegiatan
                 </p>
               </div>
-            </div>
+            </button>
 
-            {/* Selected Files Queue */}
-            {selectedFiles.length > 0 && (
-              <div className="pt-4 space-y-3">
-                <div className="flex items-center justify-between text-xs text-stone-500 px-1">
-                  <span className="font-medium text-stone-900">
-                    {selectedFiles.length} berkas dipilih
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedFiles([])}
-                    className="text-xs text-rose-600 hover:underline cursor-pointer"
-                  >
-                    Hapus Semua
-                  </button>
-                </div>
-
-                <div className="divide-y divide-[#EEEEEC] border border-[#EEEEEC] rounded-2xl overflow-hidden bg-white">
-                  {selectedFiles.map((file, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center justify-between p-3.5 text-xs hover:bg-stone-50 transition-colors"
-                    >
-                      <div className="truncate max-w-[80%]">
-                        <p className="font-medium text-stone-900 truncate">{file.name}</p>
-                        <p className="text-[11px] text-stone-400 mt-0.5">
-                          {(file.size / (1024 * 1024)).toFixed(2)} MB
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => removeFile(idx)}
-                        className="p-1 rounded-full text-stone-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer transition-colors"
-                        aria-label="Hapus berkas"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* UPLOAD PROGRESS */}
-          {uploading && (
-            <div className="space-y-2 py-2">
-              <div className="flex items-center justify-between text-xs text-stone-600">
-                <span className="flex items-center gap-2">
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#4A7729]" />
-                  {uploadStatusText}
-                </span>
-                <span className="font-mono text-stone-900">{uploadProgress}%</span>
-              </div>
-              <div className="w-full bg-stone-100 rounded-full h-1.5 overflow-hidden">
-                <div
-                  className="bg-[#4A7729] h-full transition-all duration-300"
-                  style={{ width: `${uploadProgress}%` }}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* PRIMARY CTA */}
-          <div className="pt-4">
             <button
-              type="submit"
-              disabled={uploading || selectedFiles.length === 0}
-              className="w-full py-4 rounded-full bg-stone-950 hover:bg-stone-800 disabled:opacity-30 disabled:hover:bg-stone-950 text-white font-medium text-sm transition-all cursor-pointer shadow-sm flex items-center justify-center gap-2"
+              type="button"
+              onClick={() => setCategory('worship')}
+              className={`p-5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between h-28 ${
+                category === 'worship'
+                  ? 'border-black bg-black text-white shadow-sm'
+                  : 'border-black/10 bg-white hover:border-black/30 text-black'
+              }`}
             >
-              {uploading ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>Mengunggah...</span>
-                </>
-              ) : selectedFiles.length > 0 ? (
-                <span>Unggah Sekarang</span>
-              ) : (
-                <span>Pilih Berkas Terlebih Dahulu</span>
-              )}
+              <FileText className={`w-5 h-5 ${category === 'worship' ? 'text-white' : 'text-black/60'}`} />
+              <div>
+                <p className="text-sm font-medium">Berkas Ibadah</p>
+                <p className={`text-xs mt-0.5 ${category === 'worship' ? 'text-white/70' : 'text-black/50'}`}>
+                  Tata kebaktian, slide, PDF
+                </p>
+              </div>
             </button>
           </div>
-        </form>
+        </div>
+
+        {/* 4. SUCCESS BANNER (IF JUST COMPLETED) */}
+        {uploadSuccessData && (
+          <div className="mb-10 p-6 rounded-2xl bg-black/5 border border-black/10 animate-in fade-in duration-300">
+            <div className="flex items-start gap-4">
+              <div className="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center shrink-0 mt-0.5">
+                <Check className="w-4 h-4" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm font-medium text-black">
+                  Berkas berhasil diunggah. Sudah tersimpan dan siap dilihat kembali.
+                </h3>
+                <p className="text-xs text-black/50 font-mono mt-1 break-all">
+                  {uploadSuccessData.path}
+                </p>
+                <div className="flex flex-wrap items-center gap-3 pt-4">
+                  <Link
+                    href={`/archive?sabbath=${uploadSuccessData.sabbathDate}&category=${uploadSuccessData.category}`}
+                    className="inline-flex items-center gap-1.5 text-xs font-medium bg-black text-white px-5 py-2.5 rounded-full hover:bg-black/80 transition-colors"
+                  >
+                    <span>Lihat di Arsip</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => setUploadSuccessData(null)}
+                    className="text-xs font-medium text-black/60 hover:text-black px-4 py-2.5 transition-colors cursor-pointer"
+                  >
+                    Unggah Berkas Lain
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 5. DROPZONE & FILE PICKER */}
+        <div
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOver(true);
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={handleFileDrop}
+          onClick={() => fileInputRef.current?.click()}
+          className={`border-2 border-dashed rounded-3xl p-10 sm:p-14 text-center cursor-pointer transition-all ${
+            dragOver
+              ? 'border-black bg-black/5'
+              : 'border-black/15 hover:border-black/35 bg-white'
+          }`}
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            onChange={handleFileInputChange}
+            className="hidden"
+            accept={
+              category === 'documentation'
+                ? 'image/*,video/*'
+                : '.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,image/*'
+            }
+          />
+
+          <div className="flex justify-center mb-4 text-black/40">
+            <UploadCloud className="w-10 h-10" />
+          </div>
+
+          <p className="text-sm font-medium text-black">
+            Pilih Berkas atau tarik berkas ke sini
+          </p>
+          <p className="text-xs text-black/40 mt-1">
+            {category === 'documentation'
+              ? 'Mendukung foto (JPG, PNG) dan video (MP4, MOV)'
+              : 'Mendukung PDF, presentasi PowerPoint, Word, dan slide ibadah'}
+          </p>
+        </div>
+
+        {/* 6. SELECTED FILES LIST */}
+        {selectedFiles.length > 0 && (
+          <div className="mt-8 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-normal text-black/50 uppercase tracking-wider">
+                Berkas Terpilih ({selectedFiles.length})
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedFiles([])}
+                className="text-xs text-black/50 hover:text-black transition-colors cursor-pointer"
+              >
+                Hapus Semua
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              {selectedFiles.map((file, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center justify-between p-3.5 rounded-xl border border-black/10 bg-black/[0.02]"
+                >
+                  <div className="flex items-center gap-3 min-w-0 pr-4">
+                    <div className="w-8 h-8 rounded-lg bg-black/5 flex items-center justify-center text-black/60 shrink-0">
+                      {category === 'documentation' ? (
+                        <ImageIcon className="w-4 h-4" />
+                      ) : (
+                        <FileText className="w-4 h-4" />
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-black truncate">
+                        {file.name}
+                      </p>
+                      <p className="text-[11px] text-black/40 mt-0.5">
+                        {formatFileSize(file.size)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeFile(idx);
+                    }}
+                    className="p-1.5 text-black/40 hover:text-black transition-colors rounded-full"
+                    aria-label="Hapus file"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Upload Progress Bar */}
+            {uploading && (
+              <div className="pt-4 space-y-2">
+                <div className="w-full h-1.5 bg-black/10 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-black transition-all duration-300"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+                <p className="text-xs text-black/60 text-center">
+                  Sebentar, kami sedang menyiapkannya...
+                </p>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="pt-6 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                disabled={uploading}
+                onClick={handleStartUpload}
+                className="w-full sm:w-auto inline-flex items-center justify-center bg-black hover:bg-black/80 disabled:opacity-50 text-white rounded-full px-8 py-3 text-xs font-medium transition-all shadow-sm cursor-pointer"
+              >
+                {uploading ? 'Mengunggah...' : `Mulai Unggah (${selectedFiles.length} Berkas)`}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -505,8 +490,8 @@ export default function UploadPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-white flex items-center justify-center text-stone-400 text-sm">
-          Memuat formulir unggah...
+        <div className="min-h-screen bg-white text-black flex items-center justify-center">
+          <p className="text-xs text-black/50">Sebentar, kami sedang menyiapkannya...</p>
         </div>
       }
     >

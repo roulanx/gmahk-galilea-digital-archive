@@ -2,24 +2,31 @@
 
 :root {
   --background: #FFFFFF;
-  --foreground: #111111;
-  --primary: #4A7729;
-  --primary-hover: #3D6422;
-  --primary-light: #F0F6EB;
-  --surface: #F9F9F8;
-  --surface-hover: #F2F2F0;
-  --border: #EEEEEC;
-  --border-strong: #E2E2DF;
-  --muted: #666664;
-  --muted-light: #999996;
+  --foreground: #0A0A0A;
+  --surface: rgba(0, 0, 0, 0.02);
+  --surface-hover: rgba(0, 0, 0, 0.05);
+  --border: rgba(0, 0, 0, 0.08);
+  --border-strong: rgba(0, 0, 0, 0.16);
+  --muted: rgba(0, 0, 0, 0.60);
+  --muted-light: rgba(0, 0, 0, 0.40);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #000000;
+    --foreground: #FFFFFF;
+    --surface: rgba(255, 255, 255, 0.05);
+    --surface-hover: rgba(255, 255, 255, 0.09);
+    --border: rgba(255, 255, 255, 0.12);
+    --border-strong: rgba(255, 255, 255, 0.22);
+    --muted: rgba(255, 255, 255, 0.65);
+    --muted-light: rgba(255, 255, 255, 0.45);
+  }
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --color-primary: var(--primary);
-  --color-primary-hover: var(--primary-hover);
-  --color-primary-light: var(--primary-light);
   --color-surface: var(--surface);
   --color-surface-hover: var(--surface-hover);
   --color-border: var(--border);
@@ -39,6 +46,13 @@ body {
 }
 
 ::selection {
-  background-color: #4A7729;
-  color: #ffffff;
+  background-color: #000000;
+  color: #FFFFFF;
+}
+
+@media (prefers-color-scheme: dark) {
+  ::selection {
+    background-color: #FFFFFF;
+    color: #000000;
+  }
 }

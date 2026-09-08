@@ -156,15 +156,15 @@ async function main() {
           <head>
             <title>Google Drive Terhubung</title>
             <style>
-              body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; text-align: center; padding: 60px; background: #fafaf9; color: #1c1917; }
-              .card { max-width: 500px; margin: 0 auto; background: white; padding: 40px; border-radius: 24px; border: 1px solid #e7e5e4; shadow: 0 4px 20px rgba(0,0,0,0.05); }
-              h1 { color: #4A7729; font-size: 24px; margin-bottom: 12px; }
-              p { color: #78716c; font-size: 14px; line-height: 1.6; }
+              body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; text-align: center; padding: 60px; background: #0A0A0A; color: #FFFFFF; }
+              .card { max-width: 500px; margin: 0 auto; background: #141414; padding: 48px; border-radius: 28px; border: 1px solid rgba(255,255,255,0.12); box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+              h1 { color: #FFFFFF; font-size: 22px; font-weight: 500; margin-bottom: 12px; letter-spacing: -0.02em; }
+              p { color: rgba(255,255,255,0.6); font-size: 14px; line-height: 1.6; }
             </style>
           </head>
           <body>
             <div class="card">
-              <h1>✅ Otorisasi Google Drive Berhasil</h1>
+              <h1>Otorisasi Google Drive Berhasil</h1>
               <p>Google Drive pribadi Anda telah terhubung dengan aman ke <strong>Dokumentasi Digital Galilea</strong>.</p>
               <p>Anda dapat menutup tab browser ini sekarang dan kembali melihat terminal.</p>
             </div>

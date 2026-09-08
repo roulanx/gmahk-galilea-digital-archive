@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/context/ToastContext';
 import {
   ShieldAlert,
   RotateCw,
@@ -14,6 +15,7 @@ type AdminTab = 'dashboard' | 'activities' | 'automation' | 'logs' | 'settings';
 
 export default function AdminPage() {
   const { role } = useAuth();
+  const { showToast } = useToast();
 
   const [activeTab, setActiveTab] = useState<AdminTab>('dashboard');
 
@@ -113,26 +115,42 @@ export default function AdminPage() {
 
       const json = await res.json();
       if (json.success) {
-        alert('Kegiatan berhasil ditambahkan!');
+        showToast({
+          type: 'success',
+          message: 'Kegiatan Ditambahkan',
+          description: `"${newTitle}" berhasil dicatat dalam jadwal kegiatan.`,
+        });
         setNewTitle('');
         setNewDate('');
         fetchActivities();
         fetchLogs();
       } else {
-        alert(json.error || 'Gagal menambahkan kegiatan.');
+        showToast({
+          type: 'error',
+          message: 'Gagal Menambahkan Kegiatan',
+          description: json.error || 'Terjadi kendala saat menyimpan kegiatan.',
+        });
       }
     } catch (err) {
       console.error(err);
-      alert('Terjadi kesalahan jaringan.');
+      showToast({
+        type: 'error',
+        message: 'Koneksi Terputus',
+        description: 'Tidak dapat menghubungi server. Periksa kembali sambungan internet Anda.',
+      });
     } finally {
       setCreatingActivity(false);
     }
   };
 
   const handleTriggerAutomation = async () => {
-    if (!confirm('Jalankan otomasi verifikasi dan pembuatan folder Sabat sekarang?')) return;
-
     setRunningAutomation(true);
+    showToast({
+      type: 'info',
+      message: 'Menjalankan Otomasi',
+      description: 'Sedang memeriksa struktur folder Sabat di Google Drive...',
+    });
+
     try {
       const res = await fetch('/api/admin/automation', {
         method: 'POST',
@@ -140,12 +158,28 @@ export default function AdminPage() {
       });
 
       const json = await res.json();
-      alert(json.message || 'Otomasi selesai dijalankan.');
+      if (json.success) {
+        showToast({
+          type: 'success',
+          message: 'Otomasi Selesai',
+          description: json.message || 'Struktur folder telah disinkronkan dengan baik.',
+        });
+      } else {
+        showToast({
+          type: 'error',
+          message: 'Peringatan Otomasi',
+          description: json.message || 'Tidak dapat menyelesaikan seluruh langkah otomasi.',
+        });
+      }
       fetchAutomationStatus();
       fetchLogs();
     } catch (err) {
       console.error(err);
-      alert('Gagal memproses otomasi.');
+      showToast({
+        type: 'error',
+        message: 'Koneksi Terputus',
+        description: 'Terjadi kegagalan saat menjalankan proses otomasi.',
+      });
     } finally {
       setRunningAutomation(false);
     }
@@ -153,12 +187,14 @@ export default function AdminPage() {
 
   if (role !== 'admin') {
     return (
-      <div className="min-h-screen bg-stone-50 flex items-center justify-center p-4">
-        <div className="max-w-md w-full p-8 rounded-2xl bg-white border border-stone-200 text-center space-y-4 shadow-sm">
-          <ShieldAlert className="w-12 h-12 mx-auto text-amber-500" />
-          <h2 className="text-xl font-bold text-stone-900">Akses Dibatasi</h2>
-          <p className="text-sm text-stone-500">
-            Halaman ini khusus untuk Administrator Arsip Digital. Silakan kembali ke halaman utama atau gunakan akses demo jika Anda memiliki izin.
+      <div className="min-h-screen bg-white flex items-center justify-center p-6">
+        <div className="max-w-md w-full p-8 rounded-3xl bg-neutral-50 border border-neutral-200 text-center space-y-4">
+          <div className="w-12 h-12 rounded-full bg-neutral-200 flex items-center justify-center mx-auto text-black">
+            <ShieldAlert className="w-6 h-6" />
+          </div>
+          <h2 className="text-xl font-medium text-black">Akses Khusus Pengurus</h2>
+          <p className="text-sm text-neutral-500 font-light leading-relaxed">
+            Halaman ini dikhususkan bagi pengurus untuk mengelola sistem pengarsipan. Silakan kembali ke beranda atau masuk menggunakan akun pengurus.
           </p>
         </div>
       </div>
@@ -166,16 +202,16 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white text-stone-900 selection:bg-[#4A7729] selection:text-white pb-32">
+    <div className="min-h-screen bg-white text-black selection:bg-black selection:text-white pb-32">
       {/* Admin Header */}
-      <div className="border-b border-[#EEEEEC] bg-white">
-        <div className="max-w-6xl mx-auto px-6 sm:px-8 py-10">
+      <div className="border-b border-neutral-200 bg-white">
+        <div className="max-w-6xl mx-auto px-6 sm:px-8 py-12">
           <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-6">
             <div>
-              <span className="text-xs font-semibold tracking-widest text-[#4A7729] uppercase">
-                Panel Administrator
+              <span className="text-[11px] font-medium tracking-[0.2em] text-neutral-400 uppercase">
+                Panel Pengurus
               </span>
-              <h1 className="text-3xl sm:text-4xl font-light tracking-tight text-stone-950 mt-1">
+              <h1 className="text-3xl sm:text-4xl font-light tracking-tight text-black mt-2">
                 Administrasi Sistem
               </h1>
             </div>
@@ -184,20 +220,20 @@ export default function AdminPage() {
             <button
               onClick={handleTriggerAutomation}
               disabled={runningAutomation}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-stone-950 hover:bg-stone-800 text-white text-xs font-medium transition-all shadow-sm self-start sm:self-auto disabled:opacity-50 cursor-pointer"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-black hover:bg-neutral-800 text-white text-xs font-medium transition-all shadow-sm self-start sm:self-auto disabled:opacity-40 cursor-pointer"
             >
               <RotateCw className={`w-3.5 h-3.5 ${runningAutomation ? 'animate-spin' : ''}`} />
-              Jalankan Otomasi
+              {runningAutomation ? 'Sedang Sinkronisasi...' : 'Jalankan Otomasi'}
             </button>
           </div>
 
-          {/* Navigation Tabs - Minimalist Hairline */}
+          {/* Navigation Tabs */}
           <div className="mt-8 flex items-center gap-6 overflow-x-auto pb-1 text-xs">
             {[
-              { key: 'dashboard', label: 'Dashboard' },
+              { key: 'dashboard', label: 'Ringkasan' },
               { key: 'activities', label: 'Kegiatan Khusus' },
               { key: 'automation', label: 'Otomasi Folder' },
-              { key: 'logs', label: 'Log Audit' },
+              { key: 'logs', label: 'Catatan Aktivitas' },
               { key: 'settings', label: 'Pengaturan' },
             ].map((tab) => {
               const isActive = activeTab === tab.key;
@@ -207,13 +243,13 @@ export default function AdminPage() {
                   onClick={() => setActiveTab(tab.key as AdminTab)}
                   className={`py-2 tracking-tight transition-colors shrink-0 relative cursor-pointer ${
                     isActive
-                      ? 'text-stone-950 font-medium'
-                      : 'text-stone-500 hover:text-stone-900 font-normal'
+                      ? 'text-black font-medium'
+                      : 'text-neutral-400 hover:text-black font-normal'
                   }`}
                 >
                   {tab.label}
                   {isActive && (
-                    <span className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#4A7729] rounded-full" />
+                    <span className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-black rounded-full" />
                   )}
                 </button>
               );
@@ -228,48 +264,48 @@ export default function AdminPage() {
         {activeTab === 'dashboard' && (
           <div className="space-y-10">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-              <div className="p-6 rounded-2xl border border-[#EEEEEC] bg-white flex flex-col justify-between">
-                <span className="text-xs font-normal text-stone-400 uppercase tracking-wider">
-                  Penyimpanan Terhubung
+              <div className="p-6 rounded-2xl border border-neutral-200 bg-white flex flex-col justify-between">
+                <span className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider">
+                  Penyimpanan Utama
                 </span>
                 <div className="mt-4">
-                  <h3 className="text-xl font-normal text-stone-950">Google Drive</h3>
-                  <p className="text-xs text-[#4A7729] mt-1 font-mono">Root: GMAHK Galilea</p>
+                  <h3 className="text-xl font-normal text-black">Google Drive</h3>
+                  <p className="text-xs text-neutral-500 mt-1 font-mono">My Drive / GMAHK Galilea</p>
                 </div>
               </div>
 
-              <div className="p-6 rounded-2xl border border-[#EEEEEC] bg-white flex flex-col justify-between">
-                <span className="text-xs font-normal text-stone-400 uppercase tracking-wider">
-                  Metadata Layer
+              <div className="p-6 rounded-2xl border border-neutral-200 bg-white flex flex-col justify-between">
+                <span className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider">
+                  Katalog Metadata
                 </span>
                 <div className="mt-4">
-                  <h3 className="text-xl font-normal text-stone-950">Cloud Firestore</h3>
-                  <p className="text-xs text-[#4A7729] mt-1 font-mono">Project: gmahk-galilea-archive</p>
+                  <h3 className="text-xl font-normal text-black">Cloud Firestore</h3>
+                  <p className="text-xs text-neutral-500 mt-1 font-mono">gmahk-galilea-archive</p>
                 </div>
               </div>
 
-              <div className="p-6 rounded-2xl border border-[#EEEEEC] bg-white flex flex-col justify-between">
-                <span className="text-xs font-normal text-stone-400 uppercase tracking-wider">
-                  Zona Waktu Sistem
+              <div className="p-6 rounded-2xl border border-neutral-200 bg-white flex flex-col justify-between">
+                <span className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider">
+                  Zona Waktu Pelayanan
                 </span>
                 <div className="mt-4">
-                  <h3 className="text-xl font-normal text-stone-950">WITA (UTC+8)</h3>
-                  <p className="text-xs text-stone-400 mt-1">Asia/Makassar</p>
+                  <h3 className="text-xl font-normal text-black">WITA (UTC+8)</h3>
+                  <p className="text-xs text-neutral-400 mt-1">Asia/Makassar</p>
                 </div>
               </div>
             </div>
 
             {/* Automation Summary Card */}
-            <div className="p-6 rounded-2xl border border-[#EEEEEC] bg-white">
-              <span className="text-xs font-normal text-stone-400 uppercase tracking-wider">
+            <div className="p-6 rounded-2xl border border-neutral-200 bg-white">
+              <span className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider">
                 Status Otomasi Terakhir
               </span>
-              <p className="text-sm text-stone-800 mt-2 leading-relaxed">
-                {automationStatus?.details || 'Otomasi siap dijalankan. Sistem berada dalam kondisi stabil.'}
+              <p className="text-sm text-neutral-800 mt-2 leading-relaxed font-light">
+                {automationStatus?.details || 'Sistem siap dijalankan. Struktur arsip berada dalam kondisi teratur.'}
               </p>
-              <p className="text-xs text-stone-400 mt-4 flex items-center gap-1.5">
-                <RotateCw className="w-3.5 h-3.5 text-stone-400" />
-                Terakhir diperiksa: {automationStatus?.lastRun ? new Date(automationStatus.lastRun).toLocaleString('id-ID') : '-'}
+              <p className="text-xs text-neutral-400 mt-4 flex items-center gap-1.5 font-light">
+                <RotateCw className="w-3.5 h-3.5 text-neutral-400" />
+                Pemeriksaan terakhir: {automationStatus?.lastRun ? new Date(automationStatus.lastRun).toLocaleString('id-ID') : 'Belum dijalankan'}
               </p>
             </div>
           </div>
@@ -281,31 +317,31 @@ export default function AdminPage() {
             {/* Create Activity Form */}
             <form
               onSubmit={handleCreateActivity}
-              className="p-5 rounded-xl bg-white border border-stone-200 shadow-sm max-w-xl"
+              className="p-6 rounded-2xl bg-white border border-neutral-200 max-w-xl"
             >
-              <h3 className="text-lg font-semibold text-stone-900 mb-1">Tambah Kegiatan Khusus</h3>
-              <p className="text-sm text-stone-500 mb-5">
-                Contoh: KKR Pemuda, Kebaktian Kebangunan Rohani, Perkemahan Pathfinder.
+              <h3 className="text-lg font-medium text-black mb-1">Tambah Kegiatan Khusus</h3>
+              <p className="text-sm text-neutral-500 mb-6 font-light">
+                Misalnya: Kebaktian Kebangunan Rohani, Perkemahan Pathfinder, atau Acara Khusus Jemaat.
               </p>
 
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium text-stone-700 block mb-1.5">
+                  <label className="text-xs font-medium text-neutral-700 block mb-1.5">
                     Nama Kegiatan
                   </label>
                   <input
                     type="text"
-                    placeholder="Contoh: KKR Pemuda - 19 September 2026"
+                    placeholder="Contoh: Kebaktian Kebangunan Rohani - 19 September 2026"
                     value={newTitle}
                     onChange={(e) => setNewTitle(e.target.value)}
                     required
-                    className="w-full px-3 py-2 rounded-lg bg-stone-50 border border-stone-200 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#4A7729]/20 focus:border-[#4A7729] transition-colors"
+                    className="w-full px-4 py-2.5 rounded-xl bg-neutral-50 border border-neutral-200 text-sm text-black placeholder:text-neutral-400 focus:outline-none focus:ring-1 focus:ring-black focus:border-black transition-colors font-light"
                   />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-medium text-stone-700 block mb-1.5">
+                    <label className="text-xs font-medium text-neutral-700 block mb-1.5">
                       Tanggal Pelaksanaan
                     </label>
                     <input
@@ -313,18 +349,18 @@ export default function AdminPage() {
                       value={newDate}
                       onChange={(e) => setNewDate(e.target.value)}
                       required
-                      className="w-full px-3 py-2 rounded-lg bg-stone-50 border border-stone-200 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#4A7729]/20 focus:border-[#4A7729] transition-colors"
+                      className="w-full px-4 py-2.5 rounded-xl bg-neutral-50 border border-neutral-200 text-sm text-black focus:outline-none focus:ring-1 focus:ring-black focus:border-black transition-colors font-light"
                     />
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium text-stone-700 block mb-1.5">
-                      Kategori
+                    <label className="text-xs font-medium text-neutral-700 block mb-1.5">
+                      Kategori Berkas
                     </label>
                     <select
                       value={newCategory}
                       onChange={(e) => setNewCategory(e.target.value as 'documentation' | 'worship')}
-                      className="w-full px-3 py-2 rounded-lg bg-stone-50 border border-stone-200 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#4A7729]/20 focus:border-[#4A7729] transition-colors"
+                      className="w-full px-4 py-2.5 rounded-xl bg-neutral-50 border border-neutral-200 text-sm text-black focus:outline-none focus:ring-1 focus:ring-black focus:border-black transition-colors font-light"
                     >
                       <option value="documentation">Dokumentasi</option>
                       <option value="worship">File Ibadah</option>
@@ -335,7 +371,7 @@ export default function AdminPage() {
                 <button
                   type="submit"
                   disabled={creatingActivity}
-                  className="w-full py-2.5 mt-2 rounded-lg bg-[#4A7729] hover:bg-[#3D6422] text-white font-medium text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-70"
+                  className="w-full py-3 mt-2 rounded-xl bg-black hover:bg-neutral-800 text-white font-medium text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
                 >
                   <Plus className="w-4 h-4" />
                   {creatingActivity ? 'Menyimpan...' : 'Simpan Kegiatan'}
@@ -345,28 +381,28 @@ export default function AdminPage() {
 
             {/* List of Activities */}
             <div className="space-y-4">
-              <h3 className="text-sm font-medium text-stone-500">
+              <h3 className="text-xs font-medium text-neutral-400 uppercase tracking-wider">
                 Daftar Kegiatan Tersimpan ({activities.length})
               </h3>
               <div className="grid gap-3">
                 {activities.map((act) => (
                   <div
                     key={act.id}
-                    className="p-4 rounded-xl bg-white border border-stone-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                    className="p-5 rounded-2xl bg-white border border-neutral-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2"
                   >
                     <div>
-                      <p className="font-semibold text-stone-900">{act.title}</p>
-                      <p className="text-sm text-stone-500 mt-1">
-                        {act.date} • Triwulan {act.quarter} {act.year} • {act.category === 'documentation' ? 'Dokumentasi' : 'Ibadah'}
+                      <p className="font-medium text-black">{act.title}</p>
+                      <p className="text-xs text-neutral-500 mt-1 font-light">
+                        {act.date} • Triwulan {act.quarter} {act.year} • {act.category === 'documentation' ? 'Dokumentasi' : 'File Ibadah'}
                       </p>
                     </div>
-                    <span className="text-xs font-medium text-stone-400 bg-stone-100 px-2 py-1 rounded-md self-start sm:self-center">
-                      Oleh: {act.createdBy}
+                    <span className="text-xs font-light text-neutral-400 bg-neutral-100 px-3 py-1 rounded-full self-start sm:self-center">
+                      Dicatat oleh: {act.createdBy}
                     </span>
                   </div>
                 ))}
                 {activities.length === 0 && (
-                  <div className="p-6 text-center text-stone-500 bg-white border border-stone-200 rounded-xl border-dashed">
+                  <div className="p-8 text-center text-sm text-neutral-400 bg-white border border-neutral-200 rounded-2xl border-dashed font-light">
                     Belum ada kegiatan khusus yang ditambahkan.
                   </div>
                 )}
@@ -378,23 +414,23 @@ export default function AdminPage() {
         {/* TAB 3: AUTOMATION */}
         {activeTab === 'automation' && (
           <div className="space-y-6 max-w-2xl">
-            <div className="p-6 rounded-xl bg-white border border-stone-200 shadow-sm">
-              <h3 className="text-lg font-semibold text-stone-900 mb-4">Aturan & Jadwal Otomasi</h3>
-              <ul className="space-y-3 text-sm text-stone-600 list-disc list-outside ml-4 mb-6">
-                <li>Membuat folder tahun 7 hari sebelum tahun baru dimulai.</li>
-                <li>Membuat folder triwulan (I - IV) 7 hari sebelum triwulan baru.</li>
+            <div className="p-6 rounded-2xl bg-white border border-neutral-200">
+              <h3 className="text-lg font-medium text-black mb-4">Aturan & Mekanisme Otomasi</h3>
+              <ul className="space-y-3 text-sm text-neutral-600 list-disc list-outside ml-4 mb-6 font-light leading-relaxed">
+                <li>Membuat folder tahun 7 hari sebelum tahun baru dimulai di Google Drive.</li>
+                <li>Membuat struktur folder triwulan (I - IV) secara teratur.</li>
                 <li>Menghitung seluruh hari Sabat dan membuat folder tanggal secara idempoten.</li>
                 <li>Mencegah duplikasi folder jika folder sudah pernah dibuat sebelumnya.</li>
-                <li>Mencatat hasil otomasi ke sistem audit log Firestore.</li>
+                <li>Mencatat hasil otomasi ke sistem catatan audit Firestore.</li>
               </ul>
 
               <button
                 onClick={handleTriggerAutomation}
                 disabled={runningAutomation}
-                className="px-5 py-2.5 rounded-lg bg-[#4A7729] hover:bg-[#3D6422] text-white text-sm font-medium transition-colors disabled:opacity-70 flex items-center gap-2"
+                className="px-6 py-3 rounded-full bg-black hover:bg-neutral-800 text-white text-xs font-medium transition-colors disabled:opacity-50 flex items-center gap-2 cursor-pointer"
               >
                 <FolderSync className={`w-4 h-4 ${runningAutomation ? 'animate-spin' : ''}`} />
-                {runningAutomation ? 'Sedang Memproses...' : 'Eksekusi Otomasi Sekarang'}
+                {runningAutomation ? 'Sedang Memproses...' : 'Sinkronkan Folder Sekarang'}
               </button>
             </div>
           </div>
@@ -403,49 +439,49 @@ export default function AdminPage() {
         {/* TAB 4: AUDIT LOGS */}
         {activeTab === 'logs' && (
           <div className="space-y-4">
-            <h3 className="text-sm font-medium text-stone-500 mb-2">
-              Log Audit Sistem
+            <h3 className="text-xs font-medium text-neutral-400 uppercase tracking-wider mb-2">
+              Catatan Aktivitas Sistem
             </h3>
-            <div className="bg-white border border-stone-200 rounded-xl overflow-hidden shadow-sm">
-              <div className="divide-y divide-stone-100">
+            <div className="bg-white border border-neutral-200 rounded-2xl overflow-hidden">
+              <div className="divide-y divide-neutral-100">
                 {logs.map((log) => {
-                  let badgeClass = 'bg-stone-100 text-stone-700 border-stone-200';
+                  let badgeClass = 'bg-neutral-100 text-neutral-700 border-neutral-200';
                   if (log.type === 'DELETE') {
-                    badgeClass = 'bg-red-50 text-red-700 border-red-200';
+                    badgeClass = 'bg-black text-white border-black';
                   } else if (log.type === 'UPLOAD') {
-                    badgeClass = 'bg-green-50 text-green-700 border-green-200';
+                    badgeClass = 'bg-neutral-100 text-black border-neutral-300';
                   } else if (log.type === 'AUTH') {
-                    badgeClass = 'bg-blue-50 text-blue-700 border-blue-200';
+                    badgeClass = 'bg-neutral-200 text-neutral-800 border-neutral-200';
                   } else if (log.type === 'SECURITY_ALERT') {
-                    badgeClass = 'bg-amber-50 text-amber-700 border-amber-200';
+                    badgeClass = 'bg-neutral-900 text-white border-neutral-900';
                   } else if (log.type === 'AUTOMATION') {
-                    badgeClass = 'bg-purple-50 text-purple-700 border-purple-200';
+                    badgeClass = 'border border-neutral-400 text-neutral-800';
                   }
 
                   return (
                     <div
                       key={log.id}
-                      className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-stone-50 transition-colors"
+                      className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-neutral-50 transition-colors"
                     >
                       <div className="flex items-start sm:items-center gap-3">
                         <span
-                          className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${badgeClass} shrink-0`}
+                          className={`px-2.5 py-0.5 rounded-full text-[10px] tracking-wider uppercase font-medium border ${badgeClass} shrink-0`}
                         >
                           {log.type}
                         </span>
-                        <span className="text-sm text-stone-700 font-mono">
+                        <span className="text-sm text-neutral-800 font-light">
                           {log.message}
                         </span>
                       </div>
-                      <span className="text-xs text-stone-400 font-medium shrink-0">
+                      <span className="text-xs text-neutral-400 font-light shrink-0">
                         {new Date(log.timestamp).toLocaleString('id-ID')}
                       </span>
                     </div>
                   );
                 })}
                 {logs.length === 0 && (
-                  <div className="p-6 text-center text-sm text-stone-500">
-                    Tidak ada log audit yang tersedia.
+                  <div className="p-8 text-center text-sm text-neutral-400 font-light">
+                    Belum ada catatan aktivitas yang tersimpan.
                   </div>
                 )}
               </div>
@@ -455,34 +491,34 @@ export default function AdminPage() {
 
         {/* TAB 5: SETTINGS */}
         {activeTab === 'settings' && (
-          <div className="p-6 rounded-xl bg-white border border-stone-200 shadow-sm max-w-xl">
-            <h3 className="text-lg font-semibold text-stone-900 mb-6">Konfigurasi Pengarsipan</h3>
-            <div className="space-y-4">
+          <div className="p-6 rounded-2xl bg-white border border-neutral-200 max-w-xl">
+            <h3 className="text-lg font-medium text-black mb-6">Konfigurasi Penyimpanan</h3>
+            <div className="space-y-5">
               <div>
-                <label className="text-sm font-medium text-stone-700 block mb-1.5">Email Administrator</label>
+                <label className="text-xs font-medium text-neutral-700 block mb-1.5">Penanggung Jawab Sistem</label>
                 <input
                   type="text"
                   disabled
-                  value="admin@gmahk-galilea.org"
-                  className="w-full px-3 py-2 rounded-lg bg-stone-50 border border-stone-200 text-sm text-stone-500 cursor-not-allowed"
+                  value="Kevin Simatupang — Dokumentasi Digital GMAHK Galilea"
+                  className="w-full px-4 py-2.5 rounded-xl bg-neutral-50 border border-neutral-200 text-sm text-neutral-600 cursor-not-allowed font-light"
                 />
               </div>
               <div>
-                <label className="text-sm font-medium text-stone-700 block mb-1.5">Batas Penyimpanan Utama</label>
+                <label className="text-xs font-medium text-neutral-700 block mb-1.5">Penyimpanan Berkas Utama</label>
                 <input
                   type="text"
                   disabled
-                  value="GMAHK Galilea (Google Drive ID)"
-                  className="w-full px-3 py-2 rounded-lg bg-stone-50 border border-stone-200 text-sm text-stone-500 cursor-not-allowed"
+                  value="Google Drive (Folder: GMAHK Galilea)"
+                  className="w-full px-4 py-2.5 rounded-xl bg-neutral-50 border border-neutral-200 text-sm text-neutral-600 cursor-not-allowed font-light"
                 />
               </div>
               <div>
-                <label className="text-sm font-medium text-stone-700 block mb-1.5">Zona Waktu Default</label>
+                <label className="text-xs font-medium text-neutral-700 block mb-1.5">Zona Waktu Standar</label>
                 <input
                   type="text"
                   disabled
                   value="Asia/Makassar (WITA, UTC+8)"
-                  className="w-full px-3 py-2 rounded-lg bg-stone-50 border border-stone-200 text-sm text-stone-500 cursor-not-allowed"
+                  className="w-full px-4 py-2.5 rounded-xl bg-neutral-50 border border-neutral-200 text-sm text-neutral-600 cursor-not-allowed font-light"
                 />
               </div>
             </div>

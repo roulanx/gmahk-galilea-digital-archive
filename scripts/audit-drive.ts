@@ -34,7 +34,7 @@ async function auditGoogleDrive() {
     const client = await auth.getClient();
     console.log('Google Auth Client initialized successfully! Type:', client.constructor.name);
 
-    const drive = google.drive({ version: 'v3', auth: client });
+    const drive = google.drive({ version: 'v3', auth: client as any });
     const about = await drive.about.get({ fields: 'user, storageQuota' });
     console.log('Connected to Google Drive User:', about.data.user?.emailAddress, 'DisplayName:', about.data.user?.displayName);
   } catch (err: unknown) {
