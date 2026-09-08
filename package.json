@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "lint": "eslint",
-    "test": "tsx --test test/**/*.test.ts"
+    "test": "tsx --test test/*.test.ts test/**/*.test.ts"
   },
   "dependencies": {
     "firebase": "^12.18.0",
