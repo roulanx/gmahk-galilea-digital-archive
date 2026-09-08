@@ -17,17 +17,6 @@ const SUPER_ADMIN_EMAIL = process.env.SUPER_ADMIN_EMAIL || 'admin@gmahk-galilea.
 export async function authenticateRequest(req: NextRequest): Promise<AuthSession | null> {
   const authHeader = req.headers.get('Authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    // In local development or demo, allow development admin header for quick testing
-    const devRole = req.headers.get('x-dev-role');
-    if (process.env.NODE_ENV === 'development' && devRole) {
-      const isDevAdmin = devRole === 'admin';
-      return {
-        uid: isDevAdmin ? 'dev_admin_uid' : 'dev_viewer_uid',
-        email: isDevAdmin ? SUPER_ADMIN_EMAIL : 'viewer@gmahk-galilea.org',
-        role: isDevAdmin ? 'admin' : 'viewer',
-        isSuperAdmin: isDevAdmin,
-      };
-    }
     return null;
   }
 
@@ -36,13 +25,7 @@ export async function authenticateRequest(req: NextRequest): Promise<AuthSession
 
   const adminAuth = await getAdminAuth();
   if (!adminAuth) {
-    // Fallback if Firebase Admin credentials are not yet configured in environment
-    return {
-      uid: 'fallback_uid',
-      email: SUPER_ADMIN_EMAIL,
-      role: 'admin',
-      isSuperAdmin: true,
-    };
+    throw new Error('Firebase Admin Auth is not initialized');
   }
 
   try {

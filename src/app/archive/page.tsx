@@ -260,8 +260,14 @@ function ArchiveContent() {
 
         {/* 5. EXHIBITION GALLERY GRID */}
         {loading ? (
-          <div className="py-32 text-center text-black/40 text-xs animate-pulse">
-            Sebentar, kami sedang menyiapkannya...
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 animate-fade-in">
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+              <div key={i} className="flex flex-col gap-2.5">
+                <div className="aspect-[4/3] w-full rounded-2xl bg-black/5 animate-shimmer" />
+                <div className="h-4 w-3/4 rounded bg-black/5 animate-shimmer" />
+                <div className="h-3 w-1/2 rounded bg-black/5 animate-shimmer" />
+              </div>
+            ))}
           </div>
         ) : filteredFiles.length === 0 ? (
           <div className="py-32 text-center text-black/40 text-sm font-normal">

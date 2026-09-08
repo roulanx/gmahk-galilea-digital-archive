@@ -1,99 +1,7 @@
 import { getAdminFirestore } from './firebase-admin';
+import { ActivityItem, ArchiveCategory, FileItem, SystemLog, AutomationStatus } from './types';
 import { Query, QueryDocumentSnapshot } from 'firebase-admin/firestore';
-import { FileItem, ActivityItem, SystemLog, AutomationStatus, ArchiveCategory } from './types';
 import { getDriveAuthInfo } from './drive';
-
-// In-memory mock storage for local development & demonstration before Firestore credentials are populated
-const mockFiles: FileItem[] = [
-  {
-    id: 'sample-doc-1',
-    name: 'Dokumentasi Sabat Pembukaan 2026.jpg',
-    mimeType: 'image/jpeg',
-    size: 2450000,
-    category: 'documentation',
-    fileType: 'photo',
-    sabbathDate: '2026-09-05',
-    sabbathTitle: '5 September 2026',
-    year: 2026,
-    quarter: 3,
-    folderId: 'folder-sab-1',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1519817650390-64a93db51149?w=800&auto=format&fit=crop&q=80',
-    webViewLink: 'https://drive.google.com/file/d/sample-doc-1/view',
-    uploadedAt: '2026-09-05T14:30:00Z',
-    isRandomEligible: true,
-  },
-  {
-    id: 'sample-doc-2',
-    name: 'Pelayanan Pujian Jemaat.mp4',
-    mimeType: 'video/mp4',
-    size: 15400000,
-    category: 'documentation',
-    fileType: 'video',
-    sabbathDate: '2026-09-05',
-    sabbathTitle: '5 September 2026',
-    year: 2026,
-    quarter: 3,
-    folderId: 'folder-sab-1',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=800&auto=format&fit=crop&q=80',
-    webViewLink: 'https://drive.google.com/file/d/sample-doc-2/view',
-    uploadedAt: '2026-09-05T15:10:00Z',
-    isRandomEligible: true,
-  },
-  {
-    id: 'sample-worship-1',
-    name: 'Tata Ibadah Sabat 12 September 2026.pdf',
-    mimeType: 'application/pdf',
-    size: 1240000,
-    category: 'worship',
-    fileType: 'pdf',
-    sabbathDate: '2026-09-12',
-    sabbathTitle: '12 September 2026',
-    year: 2026,
-    quarter: 3,
-    folderId: 'folder-sab-2',
-    webViewLink: 'https://drive.google.com/file/d/sample-worship-1/view',
-    uploadedAt: '2026-09-07T10:00:00Z',
-    isRandomEligible: false,
-  },
-  {
-    id: 'sample-worship-2',
-    name: 'Slide Khotbah - Kasih Yang Menyelamatkan.pptx',
-    mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-    size: 4800000,
-    category: 'worship',
-    fileType: 'presentation',
-    sabbathDate: '2026-09-12',
-    sabbathTitle: '12 September 2026',
-    year: 2026,
-    quarter: 3,
-    folderId: 'folder-sab-2',
-    webViewLink: 'https://drive.google.com/file/d/sample-worship-2/view',
-    uploadedAt: '2026-09-07T11:20:00Z',
-    isRandomEligible: false,
-  },
-];
-
-const mockActivities: ActivityItem[] = [
-  {
-    id: 'act-1',
-    title: 'KKR Pemuda Galilea - 19 September 2026',
-    date: '2026-09-19',
-    year: 2026,
-    quarter: 3,
-    category: 'documentation',
-    createdBy: 'admin@gmahk-galilea.org',
-    createdAt: '2026-09-07T12:00:00Z',
-  },
-];
-
-const mockLogs: SystemLog[] = [
-  {
-    id: 'log-1',
-    type: 'AUTOMATION',
-    message: 'Struktur folder Sabat Triwulan III 2026 berhasil diverifikasi',
-    timestamp: '2026-09-07T08:00:00Z',
-  },
-];
 
 /**
  * Indexes a new file in Firestore
@@ -103,7 +11,7 @@ export async function indexFile(file: FileItem): Promise<void> {
   if (db) {
     await db.collection('fileIndex').doc(file.id).set(file);
   } else {
-    mockFiles.unshift(file);
+    throw new Error('Firestore is not initialized');
   }
 }
 
@@ -129,14 +37,9 @@ export async function getFilesBySabbath(
       }
     }
   } catch (err) {
-    console.warn('Firestore getFilesBySabbath failed, falling back to mock:', err);
+    console.error('Firestore getFilesBySabbath failed:', err);
   }
-
-  return mockFiles.filter((f) => {
-    const matchSabbath = f.sabbathDate === sabbathDate;
-    const matchCategory = category ? f.category === category : true;
-    return matchSabbath && matchCategory;
-  });
+  return [];
 }
 
 /**
@@ -158,11 +61,9 @@ export async function getRandomArchiveSample(limitCount: number = 6): Promise<Fi
       }
     }
   } catch (err) {
-    console.warn('Firestore getRandomArchiveSample failed, falling back to mock:', err);
+    console.error('Firestore getRandomArchiveSample failed:', err);
   }
-
-  const eligible = mockFiles.filter((f) => f.isRandomEligible);
-  return [...eligible].sort(() => 0.5 - Math.random()).slice(0, limitCount);
+  return [];
 }
 
 /**
@@ -173,12 +74,13 @@ export async function createActivity(activity: ActivityItem): Promise<void> {
     const db = getAdminFirestore();
     if (db) {
       await db.collection('activities').doc(activity.id).set(activity);
-      return;
+    } else {
+      throw new Error('Firestore is not initialized');
     }
   } catch (err) {
-    console.warn('Firestore createActivity failed, saving in memory:', err);
+    console.error('Firestore createActivity failed:', err);
+    throw err;
   }
-  mockActivities.unshift(activity);
 }
 
 /**
@@ -194,9 +96,9 @@ export async function getActivities(): Promise<ActivityItem[]> {
       }
     }
   } catch (err) {
-    console.warn('Firestore getActivities failed, falling back to mock:', err);
+    console.error('Firestore getActivities failed:', err);
   }
-  return mockActivities;
+  return [];
 }
 
 /**
@@ -213,12 +115,10 @@ export async function logSystemEvent(log: Omit<SystemLog, 'id' | 'timestamp'>): 
     const db = getAdminFirestore();
     if (db) {
       await db.collection('systemLogs').doc(entry.id).set(entry);
-      return;
     }
   } catch (err) {
-    console.warn('Firestore logSystemEvent failed, saving in memory:', err);
+    console.error('Firestore logSystemEvent failed:', err);
   }
-  mockLogs.unshift(entry);
 }
 
 /**
@@ -234,9 +134,9 @@ export async function getSystemLogs(limitCount: number = 20): Promise<SystemLog[
       }
     }
   } catch (err) {
-    console.warn('Firestore getSystemLogs failed, falling back to mock:', err);
+    console.error('Firestore getSystemLogs failed:', err);
   }
-  return mockLogs.slice(0, limitCount);
+  return [];
 }
 
 /**
@@ -252,7 +152,7 @@ export async function getAutomationStatus(): Promise<AutomationStatus> {
       }
     }
   } catch (err) {
-    console.warn('Firestore getAutomationStatus failed, falling back to default:', err);
+    console.error('Firestore getAutomationStatus failed:', err);
   }
 
   const driveInfo = getDriveAuthInfo();

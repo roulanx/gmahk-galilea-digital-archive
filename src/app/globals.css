@@ -37,6 +37,10 @@
   --font-mono: var(--font-geist-mono);
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
@@ -54,5 +58,61 @@ body {
   ::selection {
     background-color: #FFFFFF;
     color: #000000;
+  }
+}
+
+/* Cinematic Utilities */
+.animate-fade-in {
+  animation: fadeIn 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.animate-shimmer {
+  animation: shimmer 2s infinite linear;
+  background: linear-gradient(
+    90deg,
+    rgba(0,0,0,0.02) 0%,
+    rgba(0,0,0,0.05) 50%,
+    rgba(0,0,0,0.02) 100%
+  );
+  background-size: 200% 100%;
+}
+
+@media (prefers-color-scheme: dark) {
+  .animate-shimmer {
+    background: linear-gradient(
+      90deg,
+      rgba(255,255,255,0.05) 0%,
+      rgba(255,255,255,0.1) 50%,
+      rgba(255,255,255,0.05) 100%
+    );
+    background-size: 200% 100%;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(15px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@media (prefers-reduced-motion) {
+  .animate-fade-in,
+  .animate-fade-in-up,
+  .animate-shimmer {
+    animation: none;
+    transition: none;
   }
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth-server';
 import { createActivity, getActivities, logSystemEvent } from '@/lib/firestore';
+import { createActivityFolderInDrive } from '@/lib/drive';
 import { getQuarterFromMonth } from '@/lib/sabbath';
 import { ActivityItem, ArchiveCategory } from '@/lib/types';
 
@@ -36,6 +37,17 @@ export async function POST(req: NextRequest) {
     const year = parseInt(yStr, 10);
     const month = parseInt(mStr, 10);
     const quarter = getQuarterFromMonth(month);
+    const actualCategory = (category as ArchiveCategory) || 'documentation';
+
+    // Create the actual folder in Google Drive
+    let driveFolder;
+    try {
+      driveFolder = await createActivityFolderInDrive(title, year, quarter, actualCategory);
+    } catch (e: unknown) {
+      console.error('Failed to create folder in Google Drive:', e);
+      const msg = e instanceof Error ? e.message : 'Unknown error';
+      return NextResponse.json({ success: false, error: `Gagal membuat folder di Google Drive: ${msg}` }, { status: 500 });
+    }
 
     const activity: ActivityItem = {
       id: `act_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
@@ -43,22 +55,23 @@ export async function POST(req: NextRequest) {
       date,
       year,
       quarter,
-      category: (category as ArchiveCategory) || 'documentation',
+      category: actualCategory,
       createdBy: session?.email || 'admin@gmahk-galilea.org',
       createdAt: new Date().toISOString(),
+      folderId: driveFolder.folderId, // Store the actual Google Drive folder ID
     };
 
     await createActivity(activity);
 
     await logSystemEvent({
-      type: 'AUTH',
-      message: `Kegiatan baru dibuat: "${title}" untuk Triwulan ${quarter} ${year}`,
+      type: 'AUTOMATION', // Admin action affecting Drive structure
+      message: `Folder kegiatan dibuat: "${title}" (${driveFolder.folderPath})`,
       userId: session?.uid,
     });
 
     return NextResponse.json({
       success: true,
-      message: 'Kegiatan berhasil ditambahkan',
+      message: 'Folder kegiatan berhasil ditambahkan ke Google Drive',
       data: activity,
     });
   } catch (error) {

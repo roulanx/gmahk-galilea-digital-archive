@@ -15,7 +15,7 @@ import {
 
 export default function Navbar() {
   const pathname = usePathname();
-  const { user, role, signInWithGoogle, signOut, toggleDevRole } = useAuth();
+  const { user, role, signInWithGoogle, signOut } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
 
@@ -101,19 +101,9 @@ export default function Navbar() {
                       </p>
                     </div>
                     <button
-                      onClick={toggleDevRole}
-                      className="w-full text-left px-4 py-2 text-xs text-stone-600 dark:text-stone-300 hover:bg-black/5 dark:hover:bg-white/5 flex items-center justify-between"
-                    >
-                      <span>Ganti Role (Demo)</span>
-                      <span className="px-2 py-0.5 rounded-md bg-black/5 dark:bg-white/10 text-black dark:text-white text-[10px] font-mono uppercase flex items-center gap-1">
-                        {role === 'admin' && <Shield className="w-3 h-3" />}
-                        {role}
-                      </span>
-                    </button>
-                    <button
                       onClick={() => {
-                        signOut();
                         setUserDropdownOpen(false);
+                        signOut();
                       }}
                       className="w-full text-left px-4 py-2 text-xs text-black/70 dark:text-white/70 hover:bg-black/5 dark:hover:bg-white/5 flex items-center gap-2"
                     >

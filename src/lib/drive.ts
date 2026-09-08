@@ -2,15 +2,14 @@ import { google } from 'googleapis';
 import { Readable } from 'stream';
 import { ArchiveCategory } from './types';
 import { parseSabbathDetails, isValidSabbathDate } from './sabbath';
+import fs from 'fs';
+import path from 'path';
 
 export interface DriveFolderResult {
   id: string;
   name: string;
   isExisting: boolean;
 }
-
-import fs from 'fs';
-import path from 'path';
 
 /**
  * Returns an authenticated Google Drive client:
@@ -152,9 +151,7 @@ export async function ensureFolder(
 
   const drive = getGoogleDriveClient();
   if (!drive) {
-    // Development fallback mock ID
-    const mockId = `mock_folder_${folderName.replace(/\s+/g, '_')}`;
-    return { id: mockId, name: folderName, isExisting: false };
+    throw new Error('Google Drive client is not authenticated');
   }
 
   const res = await drive.files.create({
@@ -174,13 +171,53 @@ export async function ensureFolder(
 }
 
 /**
+ * Creates a manual event folder directly under the corresponding Year/Quarter folder.
+ */
+export async function createActivityFolderInDrive(
+  title: string,
+  year: number,
+  quarter: number,
+  category: ArchiveCategory
+): Promise<{ folderId: string; folderPath: string }> {
+  const categoryFolderId =
+    category === 'documentation'
+      ? process.env.GOOGLE_DRIVE_DOKUMENTASI_FOLDER_ID
+      : process.env.GOOGLE_DRIVE_FILE_IBADAH_FOLDER_ID;
+
+  if (!categoryFolderId) {
+    throw new Error('Konfigurasi Root Folder ID Google Drive tidak ditemukan.');
+  }
+
+  const categoryName = category === 'documentation' ? 'Dokumentasi' : 'File Ibadah';
+  
+  // Parse quarter string like 'Triwulan III'
+  const quarters = ['Triwulan I', 'Triwulan II', 'Triwulan III', 'Triwulan IV'];
+  const quarterTitle = quarters[quarter - 1] || `Triwulan ${quarter}`;
+
+  // 1. Ensure Year folder
+  const yearRes = await ensureFolder(categoryFolderId, year.toString());
+
+  // 2. Ensure Quarter folder
+  const quarterRes = await ensureFolder(yearRes.id, quarterTitle);
+
+  // 3. Ensure Activity Folder
+  const activityRes = await ensureFolder(quarterRes.id, title);
+
+  const folderPath = `GMAHK Galilea/${categoryName}/${year}/${quarterTitle}/${title}`;
+
+  return {
+    folderId: activityRes.id,
+    folderPath,
+  };
+}
+
+/**
  * Moves a file or folder to Google Drive Trash (Admin only action)
  */
 export async function moveToTrash(fileId: string): Promise<boolean> {
   const drive = getGoogleDriveClient();
   if (!drive) {
-    console.log(`[Dev Fallback] Mock moved file ${fileId} to trash`);
-    return true;
+    throw new Error('Google Drive client is not authenticated');
   }
 
   try {
@@ -208,14 +245,7 @@ export async function uploadFileToDrive(params: {
 }): Promise<{ id: string; webViewLink?: string; webContentLink?: string; size?: number }> {
   const drive = getGoogleDriveClient();
   if (!drive) {
-    // Development fallback simulation
-    const mockId = `mock_file_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-    return {
-      id: mockId,
-      webViewLink: `https://drive.google.com/file/d/${mockId}/view`,
-      webContentLink: `https://drive.google.com/uc?id=${mockId}&export=download`,
-      size: 1024 * 1024,
-    };
+    throw new Error('Google Drive client is not authenticated');
   }
 
   const res = await drive.files.create({
@@ -326,8 +356,12 @@ export async function resolveSabbathDestinationFolder(
   const { year, quarter, quarterTitle, formattedTitle } = parseSabbathDetails(sabbathDate);
   const categoryFolderId =
     category === 'documentation'
-      ? process.env.GOOGLE_DRIVE_DOKUMENTASI_FOLDER_ID || 'managed_dok_root'
-      : process.env.GOOGLE_DRIVE_FILE_IBADAH_FOLDER_ID || 'managed_ibadah_root';
+      ? process.env.GOOGLE_DRIVE_DOKUMENTASI_FOLDER_ID
+      : process.env.GOOGLE_DRIVE_FILE_IBADAH_FOLDER_ID;
+      
+  if (!categoryFolderId) {
+    throw new Error('Google Drive root folders are not configured.');
+  }
 
   const categoryName = category === 'documentation' ? 'Dokumentasi' : 'File Ibadah';
 
