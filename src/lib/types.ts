@@ -91,7 +91,7 @@ export interface SystemLog {
 
 export interface AutomationStatus {
   lastRun: string;
-  status: 'SUCCESS' | 'FAILED' | 'IN_PROGRESS';
+  status: 'SUCCESS' | 'FAILED' | 'IN_PROGRESS' | 'AUTHENTICATION_REQUIRED' | 'READY';
   details: string;
   createdFoldersCount: number;
 }

@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "lint": "eslint",
-    "test": "tsx --test test/*.test.ts test/**/*.test.ts"
+    "test": "tsx --test test/*.test.ts test/**/*.test.ts",
+    "drive:connect": "tsx scripts/connect-drive-oauth.ts",
+    "drive:bootstrap": "tsx scripts/bootstrap-drive.ts"
   },
   "dependencies": {
     "firebase": "^12.18.0",

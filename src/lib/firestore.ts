@@ -1,6 +1,7 @@
 import { getAdminFirestore } from './firebase-admin';
 import { Query, QueryDocumentSnapshot } from 'firebase-admin/firestore';
 import { FileItem, ActivityItem, SystemLog, AutomationStatus, ArchiveCategory } from './types';
+import { getDriveAuthInfo } from './drive';
 
 // In-memory mock storage for local development & demonstration before Firestore credentials are populated
 const mockFiles: FileItem[] = [
@@ -254,10 +255,20 @@ export async function getAutomationStatus(): Promise<AutomationStatus> {
     console.warn('Firestore getAutomationStatus failed, falling back to default:', err);
   }
 
+  const driveInfo = getDriveAuthInfo();
+  if (!driveInfo.isAuthenticated) {
+    return {
+      lastRun: new Date().toISOString(),
+      status: 'AUTHENTICATION_REQUIRED',
+      details: 'Google Drive belum terhubung. Silakan hubungkan akun Google terlebih dahulu.',
+      createdFoldersCount: 0,
+    };
+  }
+
   return {
     lastRun: new Date().toISOString(),
-    status: 'SUCCESS',
-    details: 'Semua folder tahun 2026 dan Triwulan III berada dalam kondisi valid.',
+    status: 'READY',
+    details: `Google Drive terhubung (${driveInfo.targetStorage}). Otomasi siap dijalankan.`,
     createdFoldersCount: 0,
   };
 }

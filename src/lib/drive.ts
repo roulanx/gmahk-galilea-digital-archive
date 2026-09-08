@@ -13,36 +13,25 @@ import fs from 'fs';
 import path from 'path';
 
 /**
- * Returns an authenticated Google Drive client using:
- * 1. Environment variables (FIREBASE_CLIENT_EMAIL & FIREBASE_PRIVATE_KEY)
- * 2. Local service-account.json file
- * 3. Google Application Default Credentials (ADC)
+ * Returns an authenticated Google Drive client:
+ * 1. Primary: User OAuth 2.0 (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_DRIVE_REFRESH_TOKEN)
+ *    -> Operates directly on the user's personal Google Drive (My Drive).
+ * 2. Secondary: Google Application Default Credentials (ADC) from user login.
+ * 3. Fallback: Service Account (if configured).
  */
 export function getGoogleDriveClient() {
-  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-  let privateKey = process.env.FIREBASE_PRIVATE_KEY;
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const refreshToken = process.env.GOOGLE_DRIVE_REFRESH_TOKEN;
 
-  if (clientEmail && privateKey) {
-    privateKey = privateKey.replace(/\\n/g, '\n');
-    const auth = new google.auth.JWT({
-      email: clientEmail,
-      key: privateKey,
-      scopes: ['https://www.googleapis.com/auth/drive'],
-    });
-    return google.drive({ version: 'v3', auth });
+  // 1. PRIMARY: User OAuth 2.0 with Refresh Token (Personal My Drive)
+  if (clientId && clientSecret && refreshToken) {
+    const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
+    oauth2Client.setCredentials({ refresh_token: refreshToken });
+    return google.drive({ version: 'v3', auth: oauth2Client });
   }
 
-  // Check for local service-account.json in project root
-  const localServiceAccountPath = path.resolve(process.cwd(), 'service-account.json');
-  if (fs.existsSync(localServiceAccountPath)) {
-    const auth = new google.auth.GoogleAuth({
-      keyFile: localServiceAccountPath,
-      scopes: ['https://www.googleapis.com/auth/drive'],
-    });
-    return google.drive({ version: 'v3', auth });
-  }
-
-  // Check for Google Application Default Credentials (ADC) file or GOOGLE_APPLICATION_CREDENTIALS
+  // 2. Google Application Default Credentials (ADC) from user login
   const appData = process.env.APPDATA || '';
   const gcloudAdcPath = path.join(appData, 'gcloud', 'application_default_credentials.json');
   const googleAppCreds = process.env.GOOGLE_APPLICATION_CREDENTIALS;
@@ -53,7 +42,71 @@ export function getGoogleDriveClient() {
     return google.drive({ version: 'v3', auth });
   }
 
+  // 3. Fallback Service Account environment variables
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  let privateKey = process.env.FIREBASE_PRIVATE_KEY;
+  if (clientEmail && privateKey) {
+    privateKey = privateKey.replace(/\\n/g, '\n');
+    const auth = new google.auth.JWT({
+      email: clientEmail,
+      key: privateKey,
+      scopes: ['https://www.googleapis.com/auth/drive'],
+    });
+    return google.drive({ version: 'v3', auth });
+  }
+
+  // 4. Local service-account.json in project root
+  const localServiceAccountPath = path.resolve(process.cwd(), 'service-account.json');
+  if (fs.existsSync(localServiceAccountPath)) {
+    const auth = new google.auth.GoogleAuth({
+      keyFile: localServiceAccountPath,
+      scopes: ['https://www.googleapis.com/auth/drive'],
+    });
+    return google.drive({ version: 'v3', auth });
+  }
+
   return null;
+}
+
+/**
+ * Returns descriptive status of current Google Drive authentication
+ */
+export function getDriveAuthInfo(): {
+  isAuthenticated: boolean;
+  strategy: 'oauth_user' | 'adc_user' | 'service_account' | 'none';
+  targetStorage: string;
+} {
+  if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && process.env.GOOGLE_DRIVE_REFRESH_TOKEN) {
+    return {
+      isAuthenticated: true,
+      strategy: 'oauth_user',
+      targetStorage: 'My Drive Pribadi Akun Google (User OAuth 2.0)',
+    };
+  }
+
+  const appData = process.env.APPDATA || '';
+  const gcloudAdcPath = path.join(appData, 'gcloud', 'application_default_credentials.json');
+  if (fs.existsSync(gcloudAdcPath) || (process.env.GOOGLE_APPLICATION_CREDENTIALS && fs.existsSync(process.env.GOOGLE_APPLICATION_CREDENTIALS))) {
+    return {
+      isAuthenticated: true,
+      strategy: 'adc_user',
+      targetStorage: 'My Drive Pribadi Akun Google (ADC Login)',
+    };
+  }
+
+  if (process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY) {
+    return {
+      isAuthenticated: true,
+      strategy: 'service_account',
+      targetStorage: 'Service Account Storage',
+    };
+  }
+
+  return {
+    isAuthenticated: false,
+    strategy: 'none',
+    targetStorage: 'Belum Terhubung',
+  };
 }
 
 /**
