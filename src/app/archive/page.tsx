@@ -28,12 +28,10 @@ function ArchiveContent() {
   const [files, setFiles] = useState<FileItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Viewer Modal State
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
 
   useEffect(() => {
     let isMounted = true;
-
     const url = `/api/archive/tree?year=${year}&quarter=${quarter}&category=${category}${
       selectedSabbath ? `&sabbath=${selectedSabbath}` : ''
     }`;
@@ -49,19 +47,13 @@ function ArchiveContent() {
           setFiles(json.data.files);
         }
       })
-      .catch((err) => {
-        console.error(err);
-      })
+      .catch((err) => console.error(err))
       .finally(() => {
         if (isMounted) setLoading(false);
       });
-
-    return () => {
-      isMounted = false;
-    };
+    return () => { isMounted = false; };
   }, [year, quarter, category, selectedSabbath]);
 
-  // Filter files based on simple 4 categories
   const filteredFiles = files.filter((file) => {
     let matchType = true;
     if (filterType === 'photo') matchType = file.fileType === 'photo';
@@ -69,7 +61,6 @@ function ArchiveContent() {
     else if (filterType === 'document') {
       matchType = ['pdf', 'presentation', 'document', 'spreadsheet', 'other'].includes(file.fileType);
     }
-
     const matchSearch = file.name.toLowerCase().includes(searchQuery.toLowerCase());
     return matchType && matchSearch;
   });
@@ -79,269 +70,176 @@ function ArchiveContent() {
     if (filterType === 'photo') return 'Belum ada foto di sini.';
     if (filterType === 'video') return 'Belum ada video di sini.';
     if (filterType === 'document' || category === 'worship') return 'Belum ada berkas ibadah.';
-    return 'Belum ada dokumentasi di sini. Dokumentasi akan muncul setelah tersedia.';
+    return 'Belum ada dokumentasi di sini. Simpan momen untuk dikenang bersama.';
   };
 
   return (
-    <div className="min-h-screen bg-white text-black selection:bg-black selection:text-white pb-32">
-      <div className="max-w-6xl mx-auto px-6 sm:px-8">
-        {/* 1. EDITORIAL ARCHIVE HEADER */}
-        <section className="pt-16 sm:pt-24 pb-10">
-          <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-6">
+    <div className="min-h-screen bg-black text-white selection:bg-white selection:text-black pb-32">
+      <div className="max-w-[1400px] mx-auto px-6 sm:px-12">
+        
+        {/* 1. EDITORIAL OPENING */}
+        <section className="pt-24 sm:pt-32 pb-16">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-12">
             <div>
-              <span className="text-xs font-semibold tracking-widest text-black/50 uppercase">
-                RUANG DOKUMENTASI
+              <span className="editorial-eyebrow">
+                {category === 'documentation' ? 'ARSIP FOTOGRAFI & VISUAL' : 'ARSIP BERKAS IBADAH'}
               </span>
-              <h1 className="text-3xl sm:text-5xl font-light tracking-tight text-black mt-2">
-                {category === 'documentation' ? 'Dokumentasi' : 'Berkas Ibadah'}
+              <h1 className="editorial-title uppercase">
+                {category === 'documentation' ? 'DOKUMENTASI' : 'BERKAS'}
               </h1>
-              <p className="text-sm text-black/60 mt-3">
+              <p className="editorial-desc mt-6">
                 {category === 'documentation'
-                  ? 'Koleksi rekaman visual, foto pelayanan, dan kegiatan jemaat GMAHK Galilea.'
-                  : 'Tata ibadah mingguan, slide presentasi khotbah, dan berkas pelayanan jemaat.'}
+                  ? 'Jelajahi kembali memori pelayanan, Sabat, dan kebersamaan jemaat Galilea dalam arsip visual.'
+                  : 'Kumpulan tata ibadah, presentasi, dan materi pengajaran jemaat Galilea.'}
               </p>
             </div>
 
-            {/* Category Toggle Buttons */}
-            <div className="flex items-center gap-2 border border-black/10 p-1 rounded-full shrink-0">
+            {/* Category Toggle */}
+            <div className="flex flex-col gap-2 bg-white/5 border border-white/10 p-2 rounded-2xl w-full md:w-auto">
               <button
-                type="button"
-                onClick={() => {
-                  setLoading(true);
-                  setCategory('documentation');
-                }}
-                className={`px-4 py-2 rounded-full text-xs transition-all cursor-pointer ${
-                  category === 'documentation'
-                    ? 'bg-black text-white font-medium'
-                    : 'text-black/60 hover:text-black'
+                onClick={() => { setLoading(true); setCategory('documentation'); }}
+                className={`px-6 py-3 rounded-xl text-xs font-mono tracking-widest uppercase transition-all ${
+                  category === 'documentation' ? 'bg-white text-black' : 'text-white/50 hover:text-white'
                 }`}
               >
-                Dokumentasi
+                FOTO & VIDEO
               </button>
               <button
-                type="button"
-                onClick={() => {
-                  setLoading(true);
-                  setCategory('worship');
-                }}
-                className={`px-4 py-2 rounded-full text-xs transition-all cursor-pointer ${
-                  category === 'worship'
-                    ? 'bg-black text-white font-medium'
-                    : 'text-black/60 hover:text-black'
+                onClick={() => { setLoading(true); setCategory('worship'); }}
+                className={`px-6 py-3 rounded-xl text-xs font-mono tracking-widest uppercase transition-all ${
+                  category === 'worship' ? 'bg-white text-black' : 'text-white/50 hover:text-white'
                 }`}
               >
-                Berkas Ibadah
+                BERKAS IBADAH
               </button>
             </div>
           </div>
         </section>
 
-        {/* 2. EXHIBITION HIERARCHY NAVIGATION (YEAR -> QUARTER -> SABBATH) */}
-        <div className="py-6 border-y border-black/10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          {/* Year & Quarter Selector */}
-          <div className="flex flex-wrap items-center gap-4 text-xs">
-            <span className="font-mono text-black/40">HIERARKI:</span>
-
-            {/* Year Selector */}
+        {/* 2. TIMELINE NAVIGATION (YEAR / QUARTER) */}
+        <div className="py-8 border-y border-white/10 flex flex-col lg:flex-row lg:items-center justify-between gap-8">
+          <div className="flex flex-wrap items-center gap-6">
+            <span className="editorial-meta">GALILEA /</span>
             <select
               value={year}
-              onChange={(e) => {
-                setLoading(true);
-                setYear(parseInt(e.target.value, 10));
-              }}
-              className="bg-black/5 border border-black/10 px-3.5 py-1.5 rounded-full text-black font-medium focus:outline-none cursor-pointer"
+              onChange={(e) => { setLoading(true); setYear(parseInt(e.target.value, 10)); }}
+              className="bg-transparent text-2xl sm:text-4xl font-light text-white focus:outline-none cursor-pointer appearance-none"
             >
-              <option value={2026}>Tahun 2026</option>
-              <option value={2025}>Tahun 2025</option>
+              <option className="bg-black text-white" value={2026}>2026</option>
+              <option className="bg-black text-white" value={2025}>2025</option>
             </select>
 
-            <ChevronRight className="w-3.5 h-3.5 text-black/30" />
+            <div className="w-[1px] h-8 bg-white/10 hidden sm:block" />
 
-            {/* Quarter Selector */}
-            <div className="flex items-center gap-1.5">
-              {[
-                { q: 1, label: 'Triwulan I' },
-                { q: 2, label: 'Triwulan II' },
-                { q: 3, label: 'Triwulan III' },
-                { q: 4, label: 'Triwulan IV' },
-              ].map((item) => (
+            <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
+              {[1, 2, 3, 4].map((q) => (
                 <button
-                  key={item.q}
-                  type="button"
-                  onClick={() => {
-                    setLoading(true);
-                    setQuarter(item.q);
-                  }}
-                  className={`px-3 py-1.5 rounded-full text-xs transition-all cursor-pointer ${
-                    quarter === item.q
-                      ? 'bg-black text-white font-medium'
-                      : 'bg-black/5 text-black/60 hover:text-black hover:bg-black/10'
+                  key={q}
+                  onClick={() => { setLoading(true); setQuarter(q); }}
+                  className={`px-5 py-2.5 rounded-full text-[10px] font-mono tracking-widest uppercase transition-all whitespace-nowrap ${
+                    quarter === q ? 'bg-white text-black' : 'bg-white/5 text-white/50 hover:text-white hover:bg-white/10'
                   }`}
                 >
-                  {item.label}
+                  TRIWULAN {['I','II','III','IV'][q-1]}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Search Input */}
-          <div className="relative max-w-xs w-full">
-            <Search className="w-3.5 h-3.5 text-black/40 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <div className="relative max-w-sm w-full">
+            <Search className="w-4 h-4 text-white/30 absolute left-4 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Cari dokumentasi..."
-              className="w-full pl-9 pr-4 py-1.5 text-xs bg-black/5 border border-black/10 rounded-full text-black placeholder-black/40 focus:outline-none focus:border-black"
+              placeholder="Cari dalam arsip..."
+              className="w-full pl-11 pr-4 py-3 bg-white/5 border border-white/10 rounded-full text-white placeholder-white/30 text-sm focus:outline-none focus:border-white/40 transition-colors"
             />
           </div>
         </div>
 
-        {/* 3. SABBATH TIMELINE BAR */}
+        {/* 3. SABBATH SELECTOR (TIMELINE) */}
         {sabbaths.length > 0 && (
-          <div className="py-4 overflow-x-auto scrollbar-none flex items-center gap-2 border-b border-black/10">
-            <span className="text-[11px] font-mono text-black/40 uppercase tracking-wider pl-1 shrink-0">
-              SABAT:
-            </span>
+          <div className="py-6 overflow-x-auto scrollbar-none flex items-center gap-3 border-b border-white/10">
+            <span className="editorial-meta shrink-0 mr-2">SABAT:</span>
             {sabbaths.map((sab) => {
               const isSelected = selectedSabbath === sab.date;
               return (
                 <button
                   key={sab.date}
-                  type="button"
-                  onClick={() => {
-                    setLoading(true);
-                    setSelectedSabbath(sab.date);
-                  }}
-                  className={`px-4 py-2 rounded-full text-xs whitespace-nowrap transition-all cursor-pointer shrink-0 ${
-                    isSelected
-                      ? 'bg-black text-white font-medium shadow-sm'
-                      : 'bg-black/[0.03] text-black/60 hover:text-black hover:bg-black/10'
+                  onClick={() => { setLoading(true); setSelectedSabbath(sab.date); }}
+                  className={`px-5 py-3 rounded-full text-xs font-mono tracking-widest uppercase whitespace-nowrap transition-all shrink-0 ${
+                    isSelected ? 'border border-white text-white' : 'border border-transparent text-white/40 hover:text-white'
                   }`}
                 >
-                  {sab.formattedTitle}
-                  {sab.isToday && ' • Hari Ini'}
+                  {sab.formattedTitle.replace('Sabat, ', '')}
                 </button>
               );
             })}
           </div>
         )}
 
-        {/* 4. SIMPLE 4-TYPE FILTER */}
-        <div className="pt-8 pb-6 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {(
-              [
-                { id: 'all', label: 'Semua' },
-                { id: 'photo', label: 'Foto' },
-                { id: 'video', label: 'Video' },
-                { id: 'document', label: 'Dokumen' },
-              ] as const
-            ).map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                onClick={() => setFilterType(f.id)}
-                className={`px-3.5 py-1.5 rounded-full text-xs transition-all cursor-pointer ${
-                  filterType === f.id
-                    ? 'border border-black text-black font-medium'
-                    : 'text-black/50 hover:text-black'
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-
-          <span className="text-xs text-black/40">
-            {loading ? 'Sebentar, kami sedang menyiapkannya...' : `${filteredFiles.length} berkas`}
-          </span>
-        </div>
-
-        {/* 5. EXHIBITION GALLERY GRID */}
-        {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 animate-fade-in">
-            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-              <div key={i} className="flex flex-col gap-2.5">
-                <div className="aspect-[4/3] w-full rounded-2xl bg-black/5 animate-shimmer" />
-                <div className="h-4 w-3/4 rounded bg-black/5 animate-shimmer" />
-                <div className="h-3 w-1/2 rounded bg-black/5 animate-shimmer" />
-              </div>
-            ))}
-          </div>
-        ) : filteredFiles.length === 0 ? (
-          <div className="py-32 text-center text-black/40 text-sm font-normal">
-            {getEmptyMessage()}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-10">
-            {filteredFiles.map((file, idx) => {
-              // Visual rhythm: Featured items every 5th image
-              const isFeatured = idx % 5 === 0 && filteredFiles.length > 2;
-              return (
-                <div
-                  key={file.id}
-                  onClick={() => setViewerIndex(idx)}
-                  className={`group cursor-pointer flex flex-col ${isFeatured ? 'sm:col-span-2' : 'col-span-1'}`}
-                >
-                  {/* Thumbnail Frame */}
-                  <div className={`relative w-full rounded-2xl overflow-hidden bg-black/5 border border-black/10 ${isFeatured ? 'aspect-[16/9]' : 'aspect-[4/3]'}`}>
+        {/* 4. GALLERY */}
+        <div className="pt-12">
+          {loading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 animate-fade-in">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div key={i} className="flex flex-col gap-4">
+                  <div className="aspect-[4/3] w-full rounded-2xl bg-white/5 animate-shimmer" />
+                  <div className="h-4 w-1/2 rounded bg-white/5 animate-shimmer" />
+                </div>
+              ))}
+            </div>
+          ) : filteredFiles.length === 0 ? (
+            <div className="py-40 flex flex-col items-center justify-center text-center">
+              <h2 className="text-3xl sm:text-5xl font-light text-white/20 mb-6 uppercase tracking-tight">KOSONG</h2>
+              <p className="editorial-desc mb-8">{getEmptyMessage()}</p>
+            </div>
+          ) : (
+            <div className="columns-1 sm:columns-2 lg:columns-3 gap-8 space-y-8 animate-fade-in-up">
+              {filteredFiles.map((file, idx) => {
+                return (
+                  <div
+                    key={file.id}
+                    onClick={() => setViewerIndex(idx)}
+                    className="group cursor-pointer break-inside-avoid relative overflow-hidden rounded-2xl bg-white/5 border border-white/10"
+                  >
                     {file.thumbnailUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={file.thumbnailUrl}
                         alt={file.name}
-                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                        className="w-full h-auto object-cover transition-transform duration-700 group-hover:scale-105 filter grayscale hover:grayscale-0"
                         loading="lazy"
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-black/30">
-                        {file.fileType === 'video' ? (
-                          <VideoIcon className={isFeatured ? "w-14 h-14" : "w-10 h-10"} />
-                        ) : file.fileType === 'photo' ? (
-                          <ImageIcon className={isFeatured ? "w-14 h-14" : "w-10 h-10"} />
-                        ) : (
-                          <FileText className={isFeatured ? "w-14 h-14" : "w-10 h-10"} />
-                        )}
+                      <div className="w-full aspect-[4/3] flex items-center justify-center text-white/20">
+                        {file.fileType === 'video' ? <VideoIcon className="w-12 h-12" /> : file.fileType === 'photo' ? <ImageIcon className="w-12 h-12" /> : <FileText className="w-12 h-12" />}
                       </div>
                     )}
-
-                    <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-md text-white text-[10px] font-mono tracking-wider uppercase">
+                    
+                    <div className="absolute top-4 right-4 px-3 py-1.5 rounded-full bg-black/60 backdrop-blur-md text-white text-[9px] font-mono tracking-widest uppercase">
                       {file.fileType}
                     </div>
-                  </div>
 
-                  {/* Metadata */}
-                  <div className="pt-3.5 flex flex-col justify-start">
-                    <p className={`font-medium text-black group-hover:text-black/70 transition-colors truncate ${isFeatured ? 'text-base' : 'text-xs'}`}>
-                      {file.name}
-                    </p>
-                    <p className={`text-black/40 mt-1 truncate ${isFeatured ? 'text-xs' : 'text-[11px]'}`}>
-                      {file.sabbathTitle || 'Arsip Pelayanan'}
-                    </p>
+                    <div className="absolute inset-x-0 bottom-0 p-6 pt-12 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+                      <p className="text-white text-lg font-medium drop-shadow-md truncate">{file.name}</p>
+                      <p className="editorial-meta mt-1">{file.sabbathTitle}</p>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Fullscreen Cinematic Media Viewer */}
       {viewerIndex !== null && filteredFiles[viewerIndex] && (
         <MediaViewer
           file={filteredFiles[viewerIndex]}
           onClose={() => setViewerIndex(null)}
-          onNext={
-            viewerIndex < filteredFiles.length - 1
-              ? () => setViewerIndex(viewerIndex + 1)
-              : undefined
-          }
-          onPrev={
-            viewerIndex > 0
-              ? () => setViewerIndex(viewerIndex - 1)
-              : undefined
-          }
+          onNext={viewerIndex < filteredFiles.length - 1 ? () => setViewerIndex(viewerIndex + 1) : undefined}
+          onPrev={viewerIndex > 0 ? () => setViewerIndex(viewerIndex - 1) : undefined}
         />
       )}
     </div>
@@ -350,13 +248,7 @@ function ArchiveContent() {
 
 export default function ArchivePage() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-white text-black flex items-center justify-center">
-          <p className="text-xs text-black/40">Sebentar, kami sedang menyiapkannya...</p>
-        </div>
-      }
-    >
+    <Suspense fallback={<div className="min-h-screen bg-black" />}>
       <ArchiveContent />
     </Suspense>
   );

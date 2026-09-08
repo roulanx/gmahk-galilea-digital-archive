@@ -190,7 +190,7 @@ export default function MediaViewer({
 
       case 'pdf':
         return (
-          <div className="w-full max-w-5xl h-[80vh] bg-white rounded-2xl overflow-hidden shadow-2xl flex flex-col">
+          <div className="w-full max-w-5xl h-[80vh] bg-black border border-white/10 rounded-2xl overflow-hidden shadow-2xl flex flex-col">
             <iframe
               src={currentFile.webViewLink || `https://docs.google.com/viewer?url=${encodeURIComponent(currentFile.webContentLink || '')}&embedded=true`}
               className="w-full flex-1 border-0"
@@ -201,8 +201,8 @@ export default function MediaViewer({
 
       default:
         return (
-          <div className="w-full max-w-md p-10 rounded-3xl bg-white text-center shadow-2xl flex flex-col items-center">
-            <div className="w-20 h-20 mb-6 rounded-full bg-neutral-100 flex items-center justify-center text-black">
+          <div className="w-full max-w-md p-10 rounded-3xl bg-black border border-white/10 text-center shadow-2xl flex flex-col items-center">
+            <div className="w-20 h-20 mb-6 rounded-full bg-white/5 flex items-center justify-center text-white">
               {currentFile.fileType === 'presentation' ? (
                 <Presentation className="w-10 h-10" />
               ) : currentFile.fileType === 'spreadsheet' ? (
@@ -211,8 +211,8 @@ export default function MediaViewer({
                 <FileText className="w-10 h-10" />
               )}
             </div>
-            <h3 className="text-xl font-normal text-black mb-2 break-words leading-tight">{currentFile.name}</h3>
-            <p className="text-sm text-neutral-500 mb-8 font-light">
+            <h3 className="text-xl font-normal text-white mb-2 break-words leading-tight">{currentFile.name}</h3>
+            <p className="text-sm text-white/60 mb-8 font-light">
               Dokumen ini dapat dibuka langsung di Google Drive atau diunduh ke perangkat Anda.
             </p>
             <div className="flex items-center justify-center">
@@ -221,7 +221,7 @@ export default function MediaViewer({
                   href={currentFile.webViewLink}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-6 py-3 rounded-full bg-black hover:bg-neutral-800 text-white text-sm font-medium transition-colors shadow-sm"
+                  className="flex items-center gap-2 px-6 py-3 rounded-full bg-white hover:bg-white/80 text-black text-sm font-medium transition-colors shadow-sm"
                 >
                   <ExternalLink className="w-4 h-4" /> Buka di Drive
                 </a>
@@ -262,7 +262,7 @@ export default function MediaViewer({
             <button
               onClick={handleDeleteClick}
               disabled={isDeleting}
-              className="p-3 rounded-full bg-white/10 hover:bg-white hover:text-black text-white transition-colors"
+              className="p-3 rounded-full bg-white/10 hover:bg-white hover:text-white text-white transition-colors"
               title="Pindahkan ke Sampah"
               aria-label="Pindahkan ke Sampah"
             >
@@ -343,25 +343,25 @@ export default function MediaViewer({
           onClick={(e) => e.stopPropagation()}
         >
           <div 
-            className="bg-white rounded-3xl p-8 max-w-sm w-full mx-4 shadow-2xl flex flex-col items-center text-center border border-neutral-200"
+            className="bg-black border border-white/10 rounded-3xl p-8 max-w-sm w-full mx-4 shadow-2xl flex flex-col items-center text-center border border-white/10"
           >
-            <div className="w-14 h-14 rounded-full bg-neutral-100 flex items-center justify-center mb-5 text-black">
+            <div className="w-14 h-14 rounded-full bg-white/5 flex items-center justify-center mb-5 text-white">
               <AlertTriangle className="w-6 h-6" />
             </div>
-            <h3 className="text-xl font-medium text-black mb-2">Pindahkan ke Sampah?</h3>
-            <p className="text-neutral-500 text-sm mb-8 leading-relaxed font-light">
-              Apakah Anda yakin ingin memindahkan <span className="font-medium text-black">{currentFile.name}</span> ke Sampah Google Drive?
+            <h3 className="text-xl font-medium text-white mb-2">Pindahkan ke Sampah?</h3>
+            <p className="text-white/60 text-sm mb-8 leading-relaxed font-light">
+              Apakah Anda yakin ingin memindahkan <span className="font-medium text-white">{currentFile.name}</span> ke Sampah Google Drive?
             </p>
             <div className="flex flex-col gap-3 w-full">
               <button
                 onClick={confirmDelete}
-                className="w-full py-3.5 px-4 rounded-xl bg-black hover:bg-neutral-800 text-white text-sm font-medium transition-colors"
+                className="w-full py-3.5 px-4 rounded-xl bg-white hover:bg-white/80 text-black text-sm font-medium transition-colors"
               >
                 Pindahkan ke Sampah
               </button>
               <button
                 onClick={() => setShowDeleteConfirm(false)}
-                className="w-full py-3.5 px-4 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-black text-sm font-medium transition-colors"
+                className="w-full py-3.5 px-4 rounded-xl bg-white/5 hover:bg-neutral-200 text-white text-sm font-medium transition-colors"
               >
                 Batal
               </button>
