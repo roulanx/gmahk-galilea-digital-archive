@@ -15,7 +15,7 @@ import {
 
 export default function Navbar() {
   const pathname = usePathname();
-  const { user, role, signInWithGoogle, signOut } = useAuth();
+  const { user, role, loading, roleLoading, signInWithGoogle, signOut } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
 
@@ -73,16 +73,18 @@ export default function Navbar() {
 
           {/* Right Action: Auth / Profile */}
           <div className="hidden md:flex items-center gap-4">
-            {user ? (
+            {loading || roleLoading ? (
+              <div className="w-8 h-8 rounded-full bg-white/5 animate-pulse border border-white/10" />
+            ) : user ? (
               <div className="relative">
                 <button
                   onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                  className="flex items-center gap-2.5 py-1.5 px-2.5 rounded-full hover:bg-white/5 dark:hover:bg-black/90/5 transition-colors"
+                  className="flex items-center gap-2.5 py-1.5 px-2.5 rounded-full hover:bg-white/5 transition-colors"
                 >
-                  <div className="w-7 h-7 rounded-full bg-white/5  text-white  font-medium text-xs flex items-center justify-center border border-white/10 ">
+                  <div className="w-7 h-7 rounded-full bg-white/10 text-white font-medium text-xs flex items-center justify-center border border-white/20">
                     {user.displayName ? user.displayName.charAt(0).toUpperCase() : 'U'}
                   </div>
-                  <span className="text-xs font-normal text-white/80  max-w-[110px] truncate hidden lg:inline">
+                  <span className="text-xs font-normal text-white/80 max-w-[110px] truncate hidden lg:inline">
                     {user.displayName?.split(' ')[0] || user.email?.split('@')[0]}
                   </span>
                   <ChevronDown className="w-3.5 h-3.5 text-white/40" />
@@ -90,19 +92,32 @@ export default function Navbar() {
 
                 {/* Dropdown Menu */}
                 {userDropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-56 rounded-2xl bg-black/90  border border-white/10  shadow-2xl py-2 z-50">
-                    <div className="px-4 py-2 border-b border-white/10 ">
-                      <p className="text-[11px] text-white/40">Masuk sebagai</p>
-                      <p className="text-xs font-medium text-white  truncate">
+                  <div className="absolute right-0 mt-2 w-56 rounded-2xl bg-black/95 border border-white/10 shadow-2xl py-2 z-50">
+                    <div className="px-4 py-2 border-b border-white/10">
+                      <p className="text-[10px] font-mono tracking-wider uppercase text-white/40">Masuk sebagai</p>
+                      <p className="text-xs font-medium text-white truncate mt-0.5">
                         {user.email}
                       </p>
+                      <span className="inline-block mt-1 text-[9px] font-mono tracking-widest uppercase px-2 py-0.5 bg-white/10 rounded text-white/80">
+                        {role === 'admin' ? 'ADMIN' : 'VIEWER'}
+                      </span>
                     </div>
+                    {role === 'admin' && (
+                      <Link
+                        href="/admin"
+                        onClick={() => setUserDropdownOpen(false)}
+                        className="w-full text-left px-4 py-2 text-xs text-white/80 hover:bg-white/10 flex items-center gap-2 transition-colors"
+                      >
+                        <Shield className="w-3.5 h-3.5" />
+                        Panel Admin
+                      </Link>
+                    )}
                     <button
                       onClick={() => {
                         setUserDropdownOpen(false);
                         signOut();
                       }}
-                      className="w-full text-left px-4 py-2 text-xs text-white/70 /70 hover:bg-white/5 dark:hover:bg-black/90/5 flex items-center gap-2"
+                      className="w-full text-left px-4 py-2 text-xs text-white/70 hover:bg-white/10 flex items-center gap-2 transition-colors"
                     >
                       <LogOut className="w-3.5 h-3.5" />
                       Keluar
@@ -113,7 +128,7 @@ export default function Navbar() {
             ) : (
               <button
                 onClick={signInWithGoogle}
-                className="text-xs font-medium text-white  hover:opacity-70 px-4 py-2 rounded-full border border-black/15 dark:border-white/20 transition-all"
+                className="text-xs font-mono tracking-widest uppercase text-white/80 hover:text-white px-5 py-2 rounded-full border border-white/20 hover:border-white/50 transition-all cursor-pointer"
               >
                 Masuk
               </button>
@@ -156,35 +171,42 @@ export default function Navbar() {
               );
             })}
           </div>
-          <div className="pt-4 border-t border-white/10 ">
-            {user ? (
+          <div className="pt-4 border-t border-white/10">
+            {loading || roleLoading ? (
+              <div className="py-4 flex items-center justify-center">
+                <div className="w-6 h-6 rounded-full border-2 border-white/20 border-t-white animate-spin" />
+              </div>
+            ) : user ? (
               <div className="space-y-4">
                 <div className="flex items-center justify-between px-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-white/5  text-white  font-medium text-base flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-full bg-white/10 text-white font-medium text-base flex items-center justify-center border border-white/20">
                       {user.displayName ? user.displayName.charAt(0).toUpperCase() : 'U'}
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-white ">{user.displayName || user.email?.split('@')[0]}</p>
+                      <p className="text-sm font-medium text-white">{user.displayName || user.email?.split('@')[0]}</p>
                       <p className="text-xs text-white/50">{user.email}</p>
                     </div>
                   </div>
-                  <span className="text-xs font-medium px-2 py-1 rounded bg-white/5  text-white  uppercase flex items-center gap-1">
+                  <span className="text-[10px] font-mono tracking-widest uppercase px-2 py-1 rounded bg-white/10 text-white flex items-center gap-1">
                     {role === 'admin' && <Shield className="w-3 h-3" />}
                     {role}
                   </span>
                 </div>
                 <button
                   onClick={signOut}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-full border border-white/10  text-white/80  hover:bg-white/5 dark:hover:bg-black/90/5 text-xs font-medium transition-colors"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-full border border-white/10 text-white/80 hover:bg-white/10 text-xs font-mono tracking-widest uppercase transition-colors"
                 >
                   <LogOut className="w-3.5 h-3.5" /> Keluar
                 </button>
               </div>
             ) : (
               <button
-                onClick={signInWithGoogle}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-full bg-black text-white hover:bg-black/85    text-xs font-medium transition-colors"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  signInWithGoogle();
+                }}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-full bg-white text-black hover:bg-white/90 text-xs font-mono tracking-widest uppercase transition-colors cursor-pointer"
               >
                 Masuk
               </button>

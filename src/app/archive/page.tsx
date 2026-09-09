@@ -6,7 +6,6 @@ import {
   Image as ImageIcon,
   Video as VideoIcon,
   FileText,
-  ChevronRight,
   Search,
 } from 'lucide-react';
 import { ArchiveCategory, FileItem, SabbathInfo } from '@/lib/types';
@@ -179,8 +178,39 @@ function ArchiveContent() {
           </div>
         )}
 
+        {/* 3.5. TYPE FILTERS */}
+        <div className="pt-8 pb-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {(
+              [
+                { id: 'all', label: 'SEMUA' },
+                { id: 'photo', label: 'FOTO' },
+                { id: 'video', label: 'VIDEO' },
+                { id: 'document', label: 'DOKUMEN' },
+              ] as const
+            ).map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => setFilterType(f.id)}
+                className={`px-4 py-1.5 rounded-full text-[10px] font-mono tracking-widest uppercase transition-all cursor-pointer ${
+                  filterType === f.id
+                    ? 'bg-white text-black'
+                    : 'bg-white/5 text-white/50 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          <span className="editorial-meta">
+            {loading ? 'MEMUAT...' : `${filteredFiles.length} BERKAS`}
+          </span>
+        </div>
+
         {/* 4. GALLERY */}
-        <div className="pt-12">
+        <div className="pt-8">
           {loading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 animate-fade-in">
               {[1, 2, 3, 4, 5, 6].map((i) => (

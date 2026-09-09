@@ -2,7 +2,7 @@ import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, Auth } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
 
-const firebaseConfig = {
+export const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || '',
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || '',
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || '',
@@ -15,18 +15,30 @@ let app: FirebaseApp | undefined;
 let auth: Auth | undefined;
 let db: Firestore | undefined;
 
+export const isFirebaseConfigured = (): boolean => {
+  return Boolean(firebaseConfig.apiKey && firebaseConfig.apiKey.trim().length > 0);
+};
+
 try {
-  // Only initialize if API key is present, ensuring honest failure if not configured
-  if (firebaseConfig.apiKey) {
+  if (isFirebaseConfigured()) {
     app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
     auth = getAuth(app);
     db = getFirestore(app);
   } else {
-    console.warn('⚠️ Firebase API Key missing. Authentication and Database will fail honestly.');
+    if (typeof window !== 'undefined') {
+      console.warn(
+        '[Firebase] Client-side Firebase credentials are not yet configured in environment variables. ' +
+        'Please configure NEXT_PUBLIC_FIREBASE_* variables in Vercel / .env.local.'
+      );
+    }
   }
 } catch (e) {
-  console.error('Firebase initialization error:', e);
+  console.error('[Firebase] Initialization error:', e);
 }
 
 export const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({
+  prompt: 'select_account',
+});
+
 export { app, auth, db };

@@ -1,12 +1,11 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import {
   ShieldAlert,
-  RotateCw,
-  Plus,
   FolderSync,
 } from 'lucide-react';
 import { ActivityItem, AutomationStatus, SystemLog } from '@/lib/types';
@@ -14,7 +13,7 @@ import { ActivityItem, AutomationStatus, SystemLog } from '@/lib/types';
 type AdminTab = 'dashboard' | 'activities' | 'automation' | 'logs' | 'settings';
 
 export default function AdminPage() {
-  const { role } = useAuth();
+  const { role, user, loading, roleLoading, signInWithGoogle, signOut, getIdToken } = useAuth();
   const { showToast } = useToast();
 
   const [activeTab, setActiveTab] = useState<AdminTab>('dashboard');
@@ -29,6 +28,17 @@ export default function AdminPage() {
   const [runningAutomation, setRunningAutomation] = useState(false);
 
   const [logs, setLogs] = useState<SystemLog[]>([]);
+
+  const getAuthHeaders = useCallback(async (): Promise<Record<string, string>> => {
+    const token = await getIdToken();
+    const headers: Record<string, string> = {
+      'x-dev-role': role,
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    return headers;
+  }, [getIdToken, role]);
 
   const fetchActivities = useCallback(async () => {
     try {
@@ -48,28 +58,53 @@ export default function AdminPage() {
 
   const fetchLogs = useCallback(async () => {
     try {
-      const res = await fetch('/api/admin/logs', { headers: { 'x-dev-role': role } });
+      const headers = await getAuthHeaders();
+      const res = await fetch('/api/admin/logs', { headers });
       const json = await res.json();
       if (json.success) setLogs(json.data);
     } catch (e) { console.error(e); }
-  }, [role]);
+  }, [getAuthHeaders]);
 
   useEffect(() => {
     let isMounted = true;
-    fetchActivities();
-    fetchAutomationStatus();
-    fetchLogs();
+    if (role === 'admin') {
+      const loadInitial = async () => {
+        try {
+          const headers = await getAuthHeaders();
+          const [resAct, resAuto, resLogs] = await Promise.all([
+            fetch('/api/admin/activities'),
+            fetch('/api/admin/automation'),
+            fetch('/api/admin/logs', { headers }),
+          ]);
+          const [jsonAct, jsonAuto, jsonLogs] = await Promise.all([
+            resAct.json(),
+            resAuto.json(),
+            resLogs.json(),
+          ]);
+          if (isMounted) {
+            if (jsonAct.success) setActivities(jsonAct.data);
+            if (jsonAuto.success) setAutomationStatus(jsonAuto.data);
+            if (jsonLogs.success) setLogs(jsonLogs.data);
+          }
+        } catch (err) {
+          console.error('Failed to load admin data:', err);
+        }
+      };
+      loadInitial();
+    }
     return () => { isMounted = false; };
-  }, [fetchActivities, fetchAutomationStatus, fetchLogs]);
+  }, [role, getAuthHeaders]);
 
   const handleCreateActivity = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTitle || !newDate) return;
     setCreatingActivity(true);
     try {
+      const headers = await getAuthHeaders();
+      headers['Content-Type'] = 'application/json';
       const res = await fetch('/api/admin/activities', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-dev-role': role },
+        headers,
         body: JSON.stringify({ title: newTitle, date: newDate, category: newCategory }),
       });
       const json = await res.json();
@@ -80,6 +115,7 @@ export default function AdminPage() {
         showToast({ type: 'error', message: 'Gagal.', description: json.error || 'Terjadi kesalahan.' });
       }
     } catch (err) {
+      console.error('Create activity error:', err);
       showToast({ type: 'error', message: 'Koneksi Terputus.', description: 'Periksa jaringan Anda.' });
     } finally {
       setCreatingActivity(false);
@@ -90,7 +126,8 @@ export default function AdminPage() {
     setRunningAutomation(true);
     showToast({ type: 'info', message: 'Menjalankan...', description: 'Memeriksa struktur folder Google Drive.' });
     try {
-      const res = await fetch('/api/admin/automation', { method: 'POST', headers: { 'x-dev-role': role } });
+      const headers = await getAuthHeaders();
+      const res = await fetch('/api/admin/automation', { method: 'POST', headers });
       const json = await res.json();
       if (json.success) {
         showToast({ type: 'success', message: 'Selesai.', description: json.message || 'Folder disinkronkan.' });
@@ -99,18 +136,53 @@ export default function AdminPage() {
       }
       fetchAutomationStatus(); fetchLogs();
     } catch (err) {
+      console.error('Automation error:', err);
       showToast({ type: 'error', message: 'Koneksi Terputus.', description: 'Periksa jaringan Anda.' });
     } finally {
       setRunningAutomation(false);
     }
   };
 
+  if (loading || roleLoading) {
+    return (
+      <div className="min-h-screen bg-black text-white selection:bg-white selection:text-black flex flex-col items-center justify-center p-6 text-center animate-fade-in">
+        <div className="w-8 h-8 rounded-full border-2 border-white/20 border-t-white animate-spin mb-6" />
+        <p className="font-mono text-xs tracking-widest text-white/50 uppercase">MEMERIKSA HAK AKSES ADMINISTRATOR...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-black text-white selection:bg-white selection:text-black flex flex-col items-center justify-center p-6 text-center animate-fade-in">
+        <span className="editorial-eyebrow">PORTAL SISTEM</span>
+        <h1 className="editorial-title uppercase mb-6">MASUK KE<br />PANEL ADMIN</h1>
+        <p className="editorial-desc mb-10 max-w-md">
+          Halaman ini khusus untuk pengelolaan arsip dan sistem GMAHK Galilea. Masuk dengan akun Google Anda untuk melanjutkan.
+        </p>
+        <button onClick={signInWithGoogle} className="editorial-button">
+          MASUK DENGAN GOOGLE
+        </button>
+      </div>
+    );
+  }
+
   if (role !== 'admin') {
     return (
       <div className="min-h-screen bg-black text-white selection:bg-white selection:text-black flex flex-col items-center justify-center p-6 text-center animate-fade-in">
         <ShieldAlert className="w-16 h-16 text-white/20 mb-8" />
         <h1 className="editorial-title uppercase">AKSES DITOLAK</h1>
-        <p className="editorial-desc mt-6">Halaman ini diperuntukkan khusus bagi administrator sistem.</p>
+        <p className="editorial-desc mt-6 max-w-md">
+          Akun <span className="text-white font-medium">{user.email}</span> terdaftar sebagai Viewer. Hubungi Super Admin (simatupangkevin9@gmail.com) untuk meminta hak akses Administrator.
+        </p>
+        <div className="mt-10 flex flex-col sm:flex-row gap-4">
+          <Link href="/" className="editorial-button-secondary">
+            KEMBALI KE BERANDA
+          </Link>
+          <button onClick={signOut} className="editorial-button">
+            GANTI AKUN
+          </button>
+        </div>
       </div>
     );
   }

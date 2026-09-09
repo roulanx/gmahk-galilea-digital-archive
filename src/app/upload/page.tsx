@@ -5,8 +5,6 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   X,
-  Image as ImageIcon,
-  ArrowRight,
   FileText,
   Upload,
 } from 'lucide-react';
@@ -83,7 +81,8 @@ function UploadContent() {
       } else {
         showToast({ type: 'error', message: 'Gagal mengunggah berkas.', description: json.error || 'Terjadi kesalahan sistem.' });
       }
-    } catch (error) {
+    } catch (err) {
+      console.error('Upload error:', err);
       showToast({ type: 'error', message: 'Terjadi kesalahan jaringan.', description: 'Silakan periksa koneksi Anda.' });
     } finally {
       setUploading(false);

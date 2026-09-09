@@ -9,7 +9,11 @@ export interface AuthSession {
   isSuperAdmin: boolean;
 }
 
-const SUPER_ADMIN_EMAIL = process.env.SUPER_ADMIN_EMAIL || 'admin@gmahk-galilea.org';
+const SUPER_ADMIN_EMAILS = [
+  'simatupangkevin9@gmail.com',
+  'admin@gmahk-galilea.org',
+  (process.env.SUPER_ADMIN_EMAIL || '').toLowerCase().trim(),
+].filter(Boolean);
 
 /**
  * Verifies request authentication token and returns user session with strict server-side role check
@@ -23,17 +27,18 @@ export async function authenticateRequest(req: NextRequest): Promise<AuthSession
   const token = authHeader.split('Bearer ')[1]?.trim();
   if (!token) return null;
 
-  const adminAuth = await getAdminAuth();
-  if (!adminAuth) {
-    throw new Error('Firebase Admin Auth is not initialized');
-  }
-
   try {
+    const adminAuth = await getAdminAuth();
+    if (!adminAuth) {
+      console.warn('[ServerAuth] Firebase Admin Auth is not initialized. Server credentials missing.');
+      return null;
+    }
+
     const decoded = await adminAuth.verifyIdToken(token);
-    const email = decoded.email || '';
+    const email = (decoded.email || '').toLowerCase().trim();
     const uid = decoded.uid;
 
-    const isSuperAdmin = email.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase();
+    const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(email);
     let role: UserRole = isSuperAdmin ? 'admin' : 'viewer';
 
     // Check custom claims or Firestore role if not super admin
