@@ -36,6 +36,14 @@ export function getFirebaseAdmin(): App | null {
     }
   }
 
+  // Fallback: Initialize with projectId only (supports verifyIdToken using public Google certificates)
+  try {
+    adminApp = initializeApp({ projectId });
+    return adminApp;
+  } catch (err) {
+    console.error('Failed to initialize Firebase Admin with projectId fallback:', err);
+  }
+
   return null;
 }
 

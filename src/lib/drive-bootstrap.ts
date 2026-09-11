@@ -1,5 +1,5 @@
 import { getSabbathsInQuarter, getQuarterTitle } from './sabbath';
-import { getGoogleDriveClient, ensureFolder } from './drive';
+import { getGoogleDriveClient, ensureFolder, classifyDriveError } from './drive';
 import { logSystemEvent } from './firestore';
 
 export interface BootstrapResult {
@@ -34,15 +34,15 @@ export async function bootstrapDriveArchive(options?: {
   quarters?: number[];
   shareWithEmail?: string;
 }): Promise<BootstrapResult> {
-  const drive = await getGoogleDriveClient();
+  const drive = getGoogleDriveClient();
   const logs: string[] = [];
   const createdFolders: { name: string; id: string; path: string }[] = [];
   let existingCount = 0;
   let totalSabbaths = 0;
 
   if (!drive) {
-    const errorMsg = 'Google Drive API client tidak aktif. Pastikan kredensial (Service Account atau ADC) telah dikonfigurasi.';
-    logs.push(`[ERROR] ${errorMsg}`);
+    const errorMsg = 'Google Drive API client tidak aktif. Kredensial OAuth (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_DRIVE_REFRESH_TOKEN) atau Service Account belum dikonfigurasi.';
+    logs.push(`[AUTH_ERROR] ${errorMsg}`);
     return {
       success: false,
       rootFolderId: '',
@@ -56,39 +56,82 @@ export async function bootstrapDriveArchive(options?: {
     };
   }
 
+  // TASK 6: Lightweight authentication test before any modification
+  try {
+    logs.push('[AUTH_TEST] Memverifikasi koneksi dan izin Google Drive API...');
+    await drive.files.list({
+      pageSize: 1,
+      fields: 'files(id)',
+      spaces: 'drive',
+    });
+    logs.push('[AUTH_TEST] Koneksi Google Drive API terverifikasi aktif.');
+  } catch (testErr) {
+    const classified = classifyDriveError(testErr);
+    const authFailMsg = `Pengujian koneksi Google Drive gagal [${classified.kind}] (Status ${classified.statusCode || 'N/A'}): ${classified.message}`;
+    logs.push(`[ERROR] ${authFailMsg}`);
+    return {
+      success: false,
+      rootFolderId: '',
+      dokumentasiFolderId: '',
+      fileIbadahFolderId: '',
+      createdFolders: [],
+      existingFoldersCount: 0,
+      totalSabbathsEnsured: 0,
+      logs,
+      error: authFailMsg,
+    };
+  }
+
   const targetYear = options?.year || 2026;
   const targetQuarters = options?.quarters || [1, 2, 3, 4];
 
   // 1. ROOT FOLDER: 'GMAHK Galilea'
   let rootId = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID;
   if (!rootId) {
-    // Search in user's root Drive
-    const searchRes = await drive.files.list({
-      q: "mimeType = 'application/vnd.google-apps.folder' and name = 'GMAHK Galilea' and trashed = false",
-      fields: 'files(id, name)',
-      spaces: 'drive',
-    });
-
-    const found = searchRes.data.files?.[0];
-    if (found?.id) {
-      rootId = found.id;
-      existingCount++;
-      logs.push(`Folder root 'GMAHK Galilea' ditemukan: ID ${rootId}`);
-    } else {
-      // Create 'GMAHK Galilea' at root
-      const createRes = await drive.files.create({
-        requestBody: {
-          name: 'GMAHK Galilea',
-          mimeType: 'application/vnd.google-apps.folder',
-        },
-        fields: 'id, name',
+    try {
+      logs.push("[ROOT FOLDER] Mencari folder 'GMAHK Galilea' di root drive...");
+      const searchRes = await drive.files.list({
+        q: "mimeType = 'application/vnd.google-apps.folder' and name = 'GMAHK Galilea' and trashed = false",
+        fields: 'files(id, name)',
+        spaces: 'drive',
       });
-      rootId = createRes.data.id || '';
-      createdFolders.push({ name: 'GMAHK Galilea', id: rootId, path: 'GMAHK Galilea' });
-      logs.push(`Dibuat folder root 'GMAHK Galilea': ID ${rootId}`);
+
+      const found = searchRes.data.files?.[0];
+      if (found?.id) {
+        rootId = found.id;
+        existingCount++;
+        logs.push(`[ROOT FOLDER] Folder root 'GMAHK Galilea' ditemukan: ID ${rootId}`);
+      } else {
+        logs.push("[ROOT FOLDER] Folder belum ada. Membuat folder 'GMAHK Galilea'...");
+        const createRes = await drive.files.create({
+          requestBody: {
+            name: 'GMAHK Galilea',
+            mimeType: 'application/vnd.google-apps.folder',
+          },
+          fields: 'id, name',
+        });
+        rootId = createRes.data.id || '';
+        createdFolders.push({ name: 'GMAHK Galilea', id: rootId, path: 'GMAHK Galilea' });
+        logs.push(`[ROOT FOLDER] Dibuat folder root 'GMAHK Galilea': ID ${rootId}`);
+      }
+    } catch (rootErr) {
+      const classified = classifyDriveError(rootErr);
+      const msg = `[ROOT FOLDER] Gagal mencari atau membuat folder 'GMAHK Galilea'. Google API [${classified.kind}] (Status ${classified.statusCode || 'N/A'}): ${classified.message}`;
+      logs.push(`[ERROR] ${msg}`);
+      return {
+        success: false,
+        rootFolderId: '',
+        dokumentasiFolderId: '',
+        fileIbadahFolderId: '',
+        createdFolders,
+        existingFoldersCount: existingCount,
+        totalSabbathsEnsured: 0,
+        logs,
+        error: msg,
+      };
     }
   } else {
-    logs.push(`Menggunakan GOOGLE_DRIVE_ROOT_FOLDER_ID dari env: ${rootId}`);
+    logs.push(`[ROOT FOLDER] Menggunakan GOOGLE_DRIVE_ROOT_FOLDER_ID dari env: ${rootId}`);
   }
 
   // Optionally share root folder with user's email if created by Service Account
@@ -104,21 +147,63 @@ export async function bootstrapDriveArchive(options?: {
         },
         fields: 'id',
       });
-      logs.push(`Folder root 'GMAHK Galilea' dibagikan ke: ${shareEmail}`);
+      logs.push(`[PERMISSION] Folder root 'GMAHK Galilea' dibagikan ke: ${shareEmail}`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      logs.push(`Info permission share (${shareEmail}): ${msg}`);
+      logs.push(`[PERMISSION_INFO] Berbagi folder (${shareEmail}): ${msg}`);
     }
   }
 
   // 2. MAIN BRANCHES: 'Dokumentasi' and 'File Ibadah'
-  const dokRes = await ensureFolder(rootId, 'Dokumentasi');
-  if (dokRes.isExisting) existingCount++;
-  else createdFolders.push({ name: 'Dokumentasi', id: dokRes.id, path: 'GMAHK Galilea/Dokumentasi' });
+  let dokRes;
+  try {
+    dokRes = await ensureFolder(rootId, 'Dokumentasi');
+    if (dokRes.isExisting) {
+      existingCount++;
+    } else {
+      createdFolders.push({ name: 'Dokumentasi', id: dokRes.id, path: 'GMAHK Galilea/Dokumentasi' });
+    }
+  } catch (dokErr) {
+    const classified = classifyDriveError(dokErr);
+    const msg = `[DOKUMENTASI] Gagal memproses folder 'Dokumentasi' (Parent: GMAHK Galilea [${rootId}]). Google API [${classified.kind}] (Status ${classified.statusCode || 'N/A'}): ${classified.message}`;
+    logs.push(`[ERROR] ${msg}`);
+    return {
+      success: false,
+      rootFolderId: rootId,
+      dokumentasiFolderId: '',
+      fileIbadahFolderId: '',
+      createdFolders,
+      existingFoldersCount: existingCount,
+      totalSabbathsEnsured: 0,
+      logs,
+      error: msg,
+    };
+  }
 
-  const ibadahRes = await ensureFolder(rootId, 'File Ibadah');
-  if (ibadahRes.isExisting) existingCount++;
-  else createdFolders.push({ name: 'File Ibadah', id: ibadahRes.id, path: 'GMAHK Galilea/File Ibadah' });
+  let ibadahRes;
+  try {
+    ibadahRes = await ensureFolder(rootId, 'File Ibadah');
+    if (ibadahRes.isExisting) {
+      existingCount++;
+    } else {
+      createdFolders.push({ name: 'File Ibadah', id: ibadahRes.id, path: 'GMAHK Galilea/File Ibadah' });
+    }
+  } catch (ibadahErr) {
+    const classified = classifyDriveError(ibadahErr);
+    const msg = `[FILE IBADAH] Gagal memproses folder 'File Ibadah' (Parent: GMAHK Galilea [${rootId}]). Google API [${classified.kind}] (Status ${classified.statusCode || 'N/A'}): ${classified.message}`;
+    logs.push(`[ERROR] ${msg}`);
+    return {
+      success: false,
+      rootFolderId: rootId,
+      dokumentasiFolderId: dokRes.id,
+      fileIbadahFolderId: '',
+      createdFolders,
+      existingFoldersCount: existingCount,
+      totalSabbathsEnsured: 0,
+      logs,
+      error: msg,
+    };
+  }
 
   const branches = [
     { name: 'Dokumentasi', id: dokRes.id },
@@ -128,18 +213,60 @@ export async function bootstrapDriveArchive(options?: {
   // 3. YEARS & QUARTERS & SABBATHS
   for (const branch of branches) {
     // Ensure Year (e.g. 2026)
-    const yearRes = await ensureFolder(branch.id, targetYear.toString());
+    let yearRes;
     const yearPath = `GMAHK Galilea/${branch.name}/${targetYear}`;
-    if (yearRes.isExisting) existingCount++;
-    else createdFolders.push({ name: targetYear.toString(), id: yearRes.id, path: yearPath });
+    try {
+      yearRes = await ensureFolder(branch.id, targetYear.toString());
+      if (yearRes.isExisting) {
+        existingCount++;
+      } else {
+        createdFolders.push({ name: targetYear.toString(), id: yearRes.id, path: yearPath });
+      }
+    } catch (yearErr) {
+      const classified = classifyDriveError(yearErr);
+      const msg = `[YEAR] Gagal memproses folder tahun '${targetYear}' (Parent: ${branch.name} [${branch.id}]). Google API [${classified.kind}] (Status ${classified.statusCode || 'N/A'}): ${classified.message}`;
+      logs.push(`[ERROR] ${msg}`);
+      return {
+        success: false,
+        rootFolderId: rootId,
+        dokumentasiFolderId: dokRes.id,
+        fileIbadahFolderId: ibadahRes.id,
+        createdFolders,
+        existingFoldersCount: existingCount,
+        totalSabbathsEnsured: totalSabbaths,
+        logs,
+        error: msg,
+      };
+    }
 
     // Ensure Quarters (Triwulan I - IV)
     for (const q of targetQuarters) {
       const qTitle = getQuarterTitle(q);
       const qPath = `${yearPath}/${qTitle}`;
-      const qRes = await ensureFolder(yearRes.id, qTitle);
-      if (qRes.isExisting) existingCount++;
-      else createdFolders.push({ name: qTitle, id: qRes.id, path: qPath });
+      let qRes;
+      try {
+        qRes = await ensureFolder(yearRes.id, qTitle);
+        if (qRes.isExisting) {
+          existingCount++;
+        } else {
+          createdFolders.push({ name: qTitle, id: qRes.id, path: qPath });
+        }
+      } catch (qErr) {
+        const classified = classifyDriveError(qErr);
+        const msg = `[QUARTER] Gagal memproses folder '${qTitle}' (Parent: ${branch.name}/${targetYear} [${yearRes.id}]). Google API [${classified.kind}] (Status ${classified.statusCode || 'N/A'}): ${classified.message}`;
+        logs.push(`[ERROR] ${msg}`);
+        return {
+          success: false,
+          rootFolderId: rootId,
+          dokumentasiFolderId: dokRes.id,
+          fileIbadahFolderId: ibadahRes.id,
+          createdFolders,
+          existingFoldersCount: existingCount,
+          totalSabbathsEnsured: totalSabbaths,
+          logs,
+          error: msg,
+        };
+      }
 
       // Ensure all Sabbath folders in this quarter
       const sabbaths = getSabbathsInQuarter(targetYear, q);
@@ -147,11 +274,28 @@ export async function bootstrapDriveArchive(options?: {
         totalSabbaths++;
         const sabTitle = sab.formattedTitle; // format 'DD Month YYYY'
         const sabPath = `${qPath}/${sabTitle}`;
-        const sabRes = await ensureFolder(qRes.id, sabTitle);
-        if (sabRes.isExisting) {
-          existingCount++;
-        } else {
-          createdFolders.push({ name: sabTitle, id: sabRes.id, path: sabPath });
+        try {
+          const sabRes = await ensureFolder(qRes.id, sabTitle);
+          if (sabRes.isExisting) {
+            existingCount++;
+          } else {
+            createdFolders.push({ name: sabTitle, id: sabRes.id, path: sabPath });
+          }
+        } catch (sabErr) {
+          const classified = classifyDriveError(sabErr);
+          const msg = `[SABBATH] Gagal membuat folder Sabat '${sabTitle}' (Parent: ${qTitle} [${qRes.id}]). Google API [${classified.kind}] (Status ${classified.statusCode || 'N/A'}): ${classified.message}`;
+          logs.push(`[ERROR] ${msg}`);
+          return {
+            success: false,
+            rootFolderId: rootId,
+            dokumentasiFolderId: dokRes.id,
+            fileIbadahFolderId: ibadahRes.id,
+            createdFolders,
+            existingFoldersCount: existingCount,
+            totalSabbathsEnsured: totalSabbaths,
+            logs,
+            error: msg,
+          };
         }
       }
     }
@@ -163,7 +307,7 @@ export async function bootstrapDriveArchive(options?: {
 
   await logSystemEvent({
     type: 'AUTOMATION',
-    message: `Bootstrap Drive Archive selesai. ${createdFolders.length} folder baru dibuat.`,
+    message: `Bootstrap Drive Archive selesai. ${createdFolders.length} folder baru dibuat, ${existingCount} folder diverifikasi.`,
     metadata: {
       rootId,
       createdCount: createdFolders.length,

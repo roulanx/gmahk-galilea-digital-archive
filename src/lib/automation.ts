@@ -18,11 +18,26 @@ export async function runArchiveAutomation(): Promise<AutomationStatus> {
     });
 
     if (!result.success) {
+      const errDetails = result.error
+        ? `Otomasi gagal pada tahap Google Drive: ${result.error}`
+        : 'Otomasi gagal pada tahap Google Drive: Terjadi kesalahan tanpa pesan error spesifik.';
+
+      await logSystemEvent({
+        type: 'AUTOMATION',
+        message: errDetails,
+        metadata: {
+          logs: result.logs,
+          error: result.error,
+        },
+      });
+
       return {
         lastRun: new Date().toISOString(),
         status: 'FAILED',
-        details: result.error || 'Otomasi gagal.',
-        createdFoldersCount: 0,
+        details: errDetails,
+        createdFoldersCount: result.createdFolders.length,
+        logs: result.logs,
+        error: result.error || errDetails,
       };
     }
 
@@ -33,10 +48,11 @@ export async function runArchiveAutomation(): Promise<AutomationStatus> {
       status: 'SUCCESS',
       details: summaryDetails,
       createdFoldersCount: result.createdFolders.length,
+      logs: result.logs,
     };
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
-    const failDetails = `Otomasi gagal: ${errMsg}`;
+    const failDetails = `Otomasi gagal pada tahap Google Drive: ${errMsg}`;
 
     await logSystemEvent({
       type: 'AUTOMATION',
@@ -48,6 +64,8 @@ export async function runArchiveAutomation(): Promise<AutomationStatus> {
       status: 'FAILED',
       details: failDetails,
       createdFoldersCount: 0,
+      logs: [`[FATAL_EXCEPTION] ${failDetails}`],
+      error: errMsg,
     };
   }
 }

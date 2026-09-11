@@ -94,4 +94,6 @@ export interface AutomationStatus {
   status: 'SUCCESS' | 'FAILED' | 'IN_PROGRESS' | 'AUTHENTICATION_REQUIRED' | 'READY';
   details: string;
   createdFoldersCount: number;
+  logs?: string[];
+  error?: string;
 }

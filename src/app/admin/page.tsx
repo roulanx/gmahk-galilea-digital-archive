@@ -128,14 +128,37 @@ export default function AdminPage() {
       const res = await fetch('/api/admin/automation', { method: 'POST', headers });
       const json = await res.json();
       if (json.success) {
-        showToast({ type: 'success', message: 'Selesai.', description: json.message || 'Folder disinkronkan.' });
+        showToast({
+          type: 'success',
+          message: 'Selesai.',
+          description: json.message || json.data?.details || 'Folder disinkronkan.',
+        });
       } else {
-        showToast({ type: 'error', message: 'Peringatan.', description: json.message || 'Sebagian tahap gagal.' });
+        const lastLog =
+          Array.isArray(json.data?.logs) && json.data.logs.length > 0
+            ? json.data.logs.find((l: string) => l.startsWith('[ERROR]')) || json.data.logs[json.data.logs.length - 1]
+            : undefined;
+
+        const failureReason =
+          json.error ||
+          json.data?.error ||
+          json.data?.details ||
+          json.message ||
+          lastLog ||
+          'Terjadi kegagalan saat menjalankan otomasi Google Drive.';
+
+        showToast({
+          type: 'error',
+          message: 'Peringatan',
+          description: failureReason,
+        });
       }
-      fetchAutomationStatus(); fetchLogs();
+      fetchAutomationStatus();
+      fetchLogs();
     } catch (err) {
       console.error('Automation error:', err);
-      showToast({ type: 'error', message: 'Koneksi Terputus.', description: 'Periksa jaringan Anda.' });
+      const errMsg = err instanceof Error ? err.message : String(err);
+      showToast({ type: 'error', message: 'Koneksi Terputus.', description: `Gagal memanggil API: ${errMsg}` });
     } finally {
       setRunningAutomation(false);
     }

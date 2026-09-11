@@ -175,11 +175,17 @@ export async function findFolderByName(
   folderName: string
 ): Promise<string | null> {
   const drive = getGoogleDriveClient();
-  if (!drive) return null;
+  if (!drive) {
+    if (process.env.NODE_ENV === 'test' && !process.env.GOOGLE_CLIENT_ID) {
+      return null;
+    }
+    throw new DriveError('AUTH_ERROR', 'Google Drive client tidak terautentikasi. Kredensial tidak ditemukan.', 401);
+  }
 
   try {
+    const escapedName = folderName.replace(/'/g, "\\'");
     const res = await drive.files.list({
-      q: `'${parentFolderId}' in parents and name = '${folderName}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
+      q: `'${parentFolderId}' in parents and name = '${escapedName}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
       fields: 'files(id, name)',
       spaces: 'drive',
     });
@@ -191,8 +197,7 @@ export async function findFolderByName(
     return null;
   } catch (err) {
     const classified = classifyDriveError(err);
-    if (classified.kind === 'NOT_FOUND') return null;
-    console.error(`Error finding folder ${folderName} in ${parentFolderId}:`, classified.message);
+    console.error(`[Drive] Error searching folder '${folderName}' in parent '${parentFolderId}':`, classified.message);
     throw classified;
   }
 }
@@ -205,16 +210,16 @@ export async function ensureFolder(
   parentFolderId: string,
   folderName: string
 ): Promise<DriveFolderResult> {
-  const existingId = await findFolderByName(parentFolderId, folderName);
-  if (existingId) {
-    return { id: existingId, name: folderName, isExisting: true };
-  }
-
   const drive = getGoogleDriveClient();
   if (!drive) {
     // Development/test fallback mock ID when no Google credentials configured
     const mockId = `mock_folder_${folderName.replace(/\s+/g, '_')}`;
     return { id: mockId, name: folderName, isExisting: false };
+  }
+
+  const existingId = await findFolderByName(parentFolderId, folderName);
+  if (existingId) {
+    return { id: existingId, name: folderName, isExisting: true };
   }
 
   try {
