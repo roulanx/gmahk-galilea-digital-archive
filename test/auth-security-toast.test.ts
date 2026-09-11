@@ -150,3 +150,79 @@ describe('GMAHK Galilea - Toast Deduplication & Sliding Window Logic', () => {
     assert.equal(state[2].message, 'Pesan 4');
   });
 });
+
+describe('GMAHK Galilea - Automation Detailed Error Propagation', () => {
+  function extractFailureReason(json: {
+    message?: string;
+    error?: string;
+    data?: {
+      details?: string;
+      error?: string;
+      logs?: string[];
+    };
+  }): string {
+    const lastLog =
+      Array.isArray(json.data?.logs) && json.data.logs.length > 0
+        ? json.data.logs.find((l: string) => l.startsWith('[ERROR]')) || json.data.logs[json.data.logs.length - 1]
+        : undefined;
+
+    return (
+      json.error ||
+      json.data?.error ||
+      json.data?.details ||
+      json.message ||
+      lastLog ||
+      'Terjadi kegagalan saat menjalankan otomasi Google Drive.'
+    );
+  }
+
+  it('harus mengekstrak json.error spesifik dan tidak pernah fallback ke string generik', () => {
+    const response = {
+      success: false,
+      error: 'Pengujian koneksi Google Drive gagal [AUTH_ERROR] (Status 401): invalid_grant',
+      data: {
+        status: 'FAILED',
+        details: 'Pengujian koneksi Google Drive gagal [AUTH_ERROR] (Status 401): invalid_grant',
+      },
+    };
+
+    const reason = extractFailureReason(response);
+    assert.equal(
+      reason,
+      'Pengujian koneksi Google Drive gagal [AUTH_ERROR] (Status 401): invalid_grant'
+    );
+    assert.notEqual(reason, 'Sebagian tahap gagal.');
+  });
+
+  it('harus mengekstrak json.data.details jika json.error kosong', () => {
+    const response = {
+      success: false,
+      data: {
+        status: 'FAILED',
+        details: '[QUARTER] Gagal memproses folder Triwulan III: Permission Denied',
+      },
+    };
+
+    const reason = extractFailureReason(response);
+    assert.equal(reason, '[QUARTER] Gagal memproses folder Triwulan III: Permission Denied');
+  });
+
+  it('harus mengekstrak log [ERROR] jika response hanya memiliki logs array', () => {
+    const response = {
+      success: false,
+      data: {
+        logs: [
+          '[AUTH_TEST] Mulai pengujian...',
+          '[ERROR] Gagal membuat root folder GMAHK Galilea (HTTP 403): Insufficient permissions',
+        ],
+      },
+    };
+
+    const reason = extractFailureReason(response);
+    assert.equal(
+      reason,
+      '[ERROR] Gagal membuat root folder GMAHK Galilea (HTTP 403): Insufficient permissions'
+    );
+  });
+});
+
