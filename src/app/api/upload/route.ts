@@ -165,7 +165,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error('API Upload error:', error);
-    const classified = classifyDriveError(error);
-    return NextResponse.json({ success: false, error: classified.message }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return NextResponse.json({ success: false, error: errorMessage }, { status: 500 });
   }
 }
