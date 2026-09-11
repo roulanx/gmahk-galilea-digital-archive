@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { FileItem } from '@/lib/types';
@@ -111,7 +111,6 @@ export default function MediaViewer({
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${idToken}`,
-          'x-dev-role': role,
         },
         body: JSON.stringify({
           fileId: currentFile.id,

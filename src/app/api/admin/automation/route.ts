@@ -17,9 +17,15 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const { authorized } = await requireAdmin(req);
+    const authResult = await requireAdmin(req);
 
-    if (!authorized) {
+    if (!authResult.authorized) {
+      if (authResult.status === 'unauthenticated') {
+        return NextResponse.json(
+          { success: false, error: 'Unauthorized: Sesi autentikasi diperlukan' },
+          { status: 401 }
+        );
+      }
       return NextResponse.json(
         { success: false, error: 'Forbidden: Hanya Admin yang dapat menjalankan otomasi' },
         { status: 403 }

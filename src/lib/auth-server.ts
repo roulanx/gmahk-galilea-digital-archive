@@ -67,18 +67,23 @@ export async function authenticateRequest(req: NextRequest): Promise<AuthSession
   }
 }
 
+export type RequireAdminResult =
+  | { authorized: true; status: 'authorized'; session: AuthSession }
+  | { authorized: false; status: 'unauthenticated'; session?: undefined }
+  | { authorized: false; status: 'forbidden'; session: AuthSession };
+
 /**
  * Helper to ensure the request is authorized as an admin
  */
-export async function requireAdmin(req: NextRequest): Promise<{ authorized: boolean; session?: AuthSession }> {
+export async function requireAdmin(req: NextRequest): Promise<RequireAdminResult> {
   const session = await authenticateRequest(req);
   if (!session) {
-    return { authorized: false };
+    return { authorized: false, status: 'unauthenticated' };
   }
 
   if (session.role !== 'admin') {
-    return { authorized: false, session };
+    return { authorized: false, status: 'forbidden', session };
   }
 
-  return { authorized: true, session };
+  return { authorized: true, status: 'authorized', session };
 }

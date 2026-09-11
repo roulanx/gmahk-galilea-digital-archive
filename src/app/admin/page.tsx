@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
@@ -31,14 +31,12 @@ export default function AdminPage() {
 
   const getAuthHeaders = useCallback(async (): Promise<Record<string, string>> => {
     const token = await getIdToken();
-    const headers: Record<string, string> = {
-      'x-dev-role': role,
-    };
+    const headers: Record<string, string> = {};
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
     return headers;
-  }, [getIdToken, role]);
+  }, [getIdToken]);
 
   const fetchActivities = useCallback(async () => {
     try {

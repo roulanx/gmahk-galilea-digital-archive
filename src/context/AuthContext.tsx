@@ -130,14 +130,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         message: 'Selamat Datang',
         description: 'Anda berhasil masuk ke sistem dokumentasi GMAHK Galilea.',
       });
-    } catch (error: any) {
-      const code = error?.code || 'unknown-error';
-      const message = error?.message || 'Terjadi kesalahan internal.';
+    } catch (error: unknown) {
+      const err = error as { code?: string; message?: string; name?: string };
+      const code = err?.code || 'unknown-error';
+      const message = err?.message || 'Terjadi kesalahan internal.';
       
       console.error('[GALILEA AUTH ERROR]', {
-        code: code,
-        message: message,
-        name: error?.name
+        code,
+        message,
+        name: err?.name,
+        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+        authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+        hostname: typeof window !== 'undefined' ? window.location.hostname : undefined,
+        hasApiKey: Boolean(process.env.NEXT_PUBLIC_FIREBASE_API_KEY),
+        hasAppId: Boolean(process.env.NEXT_PUBLIC_FIREBASE_APP_ID),
+        hasMessagingSenderId: Boolean(process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID),
       });
 
       if (code === 'auth/popup-closed-by-user') {

@@ -19,14 +19,22 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const { authorized, session } = await requireAdmin(req);
+    const authResult = await requireAdmin(req);
 
-    if (!authorized) {
+    if (!authResult.authorized) {
+      if (authResult.status === 'unauthenticated') {
+        return NextResponse.json(
+          { success: false, error: 'Unauthorized: Sesi autentikasi diperlukan' },
+          { status: 401 }
+        );
+      }
       return NextResponse.json(
         { success: false, error: 'Forbidden: Hanya Admin yang dapat membuat kegiatan baru' },
         { status: 403 }
       );
     }
+
+    const { session } = authResult;
 
     const body = await req.json();
     const { title, date, category } = body;

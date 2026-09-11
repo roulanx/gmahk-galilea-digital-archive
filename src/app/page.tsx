@@ -8,6 +8,7 @@ import {
   Video as VideoIcon,
 } from 'lucide-react';
 import { FileItem, SabbathInfo } from '@/lib/types';
+import { getNearestSabbath } from '@/lib/sabbath';
 import MediaViewer from '@/components/MediaViewer';
 
 export default function Home() {
@@ -20,12 +21,14 @@ export default function Home() {
     let isMounted = true;
 
     Promise.all([
-      fetch('/api/sabbath').then((res) => res.json()),
-      fetch('/api/archive/random?count=6').then((res) => res.json())
+      fetch('/api/sabbath').then((res) => res.json()).catch(() => ({ success: false })),
+      fetch('/api/archive/random?count=6').then((res) => res.json()).catch(() => ({ success: false }))
     ]).then(([sabbathData, randomData]) => {
       if (isMounted) {
-        if (sabbathData.success) {
+        if (sabbathData.success && sabbathData.data?.nextSabbath) {
           setSabbathInfo(sabbathData.data.nextSabbath);
+        } else {
+          setSabbathInfo(getNearestSabbath());
         }
         if (randomData.success) {
           setRandomFiles(randomData.data || []);
@@ -34,7 +37,10 @@ export default function Home() {
       }
     }).catch((err) => {
       console.error(err);
-      if (isMounted) setLoadingInitial(false);
+      if (isMounted) {
+        setSabbathInfo(getNearestSabbath());
+        setLoadingInitial(false);
+      }
     });
 
     return () => {
@@ -56,6 +62,7 @@ export default function Home() {
           <div className="relative w-full max-w-[1200px] h-[80vh] sm:h-[90vh] md:h-[100vh] opacity-90 animate-fade-in mix-blend-screen overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black z-10" />
             <div className="absolute inset-0 bg-gradient-to-r from-black via-transparent to-black z-10" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img 
               src="/jesus-hero.jpg" 
               alt="Artistic Representation of Jesus Christ" 
@@ -109,17 +116,13 @@ export default function Home() {
             <div className="w-full lg:w-auto bg-black/40 backdrop-blur-xl border border-white/10 p-6 sm:p-8 rounded-2xl flex flex-col gap-4 pointer-events-auto">
               <div>
                 <p className="text-[10px] font-mono tracking-[0.2em] text-white/40 uppercase mb-1">
-                  Sabat Terdekat
+                  SABAT TERDEKAT
                 </p>
-                {loadingInitial ? (
+                {loadingInitial && !sabbathInfo ? (
                   <div className="h-8 w-40 bg-white/10 animate-shimmer rounded" />
-                ) : sabbathInfo ? (
-                  <h3 className="text-xl sm:text-2xl font-light tracking-wide text-white">
-                    {sabbathInfo.formattedTitle}
-                  </h3>
                 ) : (
-                  <h3 className="text-xl sm:text-2xl font-light tracking-wide text-white/50">
-                    Belum Ada Jadwal
+                  <h3 className="text-xl sm:text-2xl font-light tracking-wide text-white">
+                    {(sabbathInfo || getNearestSabbath()).formattedTitle}
                   </h3>
                 )}
               </div>
@@ -127,7 +130,7 @@ export default function Home() {
               <div className="w-full h-[1px] bg-white/10 my-2" />
 
               <Link
-                href={sabbathInfo ? `/archive?sabbath=${sabbathInfo.date}` : '/archive'}
+                href={`/archive?sabbath=${(sabbathInfo || getNearestSabbath()).date}`}
                 className="group flex items-center justify-between gap-4 text-xs font-mono tracking-widest text-white uppercase hover:text-white/70 transition-colors"
               >
                 Lihat Dokumentasi
