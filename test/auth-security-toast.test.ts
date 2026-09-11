@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { NextRequest } from 'next/server';
 import { authenticateRequest, requireAdmin } from '../src/lib/auth-server';
-import { classifyDriveError, DriveError } from '../src/lib/drive';
+import { classifyDriveError, DriveError, getDriveAuthInfo } from '../src/lib/drive';
 
 describe('GMAHK Galilea - Security & Authorization Guardrails', () => {
   it('harus menolak request tanpa header Authorization (401 unauthenticated)', async () => {
@@ -223,6 +223,29 @@ describe('GMAHK Galilea - Automation Detailed Error Propagation', () => {
       reason,
       '[ERROR] Gagal membuat root folder GMAHK Galilea (HTTP 403): Insufficient permissions'
     );
+  });
+
+  it('harus mengklasifikasikan error invalid_grant dan default credentials sebagai AUTH_ERROR', () => {
+    const errGrant = { message: 'invalid_grant: Bad Request' };
+    const classified1 = classifyDriveError(errGrant);
+    assert.equal(classified1.kind, 'AUTH_ERROR');
+    assert.ok(classified1.message.includes('invalid_grant'));
+
+    const errAdc = new Error('Could not load the default credentials. Browse to https://cloud.google.com/docs/authentication/getting-started for more information.');
+    const classified2 = classifyDriveError(errAdc);
+    assert.equal(classified2.kind, 'AUTH_ERROR');
+    assert.ok(classified2.message.includes('ADC tidak tersedia di Vercel'));
+  });
+
+  it('harus menghasilkan safe diagnostics tanpa mengekspos nilai secret', () => {
+    const info = getDriveAuthInfo();
+    assert.ok(info.diagnostics);
+    assert.ok(['PRESENT', 'MISSING'].includes(info.diagnostics.clientId));
+    assert.ok(['PRESENT', 'MISSING'].includes(info.diagnostics.refreshToken));
+    assert.ok(['PRESENT', 'MISSING'].includes(info.diagnostics.rootFolderId));
+    // Must never contain actual secret values
+    assert.equal(typeof info.diagnostics.clientId, 'string');
+    assert.notEqual(info.diagnostics.clientId, process.env.GOOGLE_CLIENT_ID);
   });
 });
 

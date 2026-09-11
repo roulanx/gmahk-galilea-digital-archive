@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/auth-server';
 import { getDefaultUploadSabbath, isValidSabbathDate } from '@/lib/sabbath';
-import { uploadFileToDrive, resolveSabbathDestinationFolder, getNonCollidingFileName } from '@/lib/drive';
+import { uploadFileToDrive, resolveSabbathDestinationFolder, getNonCollidingFileName, classifyDriveError } from '@/lib/drive';
 import { indexFile, logSystemEvent } from '@/lib/firestore';
 import { ArchiveCategory, FileFormatType, FileItem } from '@/lib/types';
 import { Readable } from 'stream';
@@ -39,10 +39,11 @@ function determineFileType(mimeType: string, filename: string): FileFormatType {
   return 'other';
 }
 
-
-
 export async function POST(req: NextRequest) {
   try {
+    const authHeader = req.headers.get('Authorization');
+    const token = authHeader?.startsWith('Bearer ') ? authHeader.split('Bearer ')[1]?.trim() : undefined;
+
     const session = await authenticateRequest(req);
 
     // Both viewer and admin can upload according to system rules
@@ -57,12 +58,10 @@ export async function POST(req: NextRequest) {
     }
 
     // 1. Determine or validate Sabbath destination
-    // If not provided by client, backend calculates the nearest active Sabbath using Asia/Makassar (WITA)
     if (!targetSabbathDate) {
       const defaultSabbath = getDefaultUploadSabbath();
       targetSabbathDate = defaultSabbath.date;
     } else if (!isValidSabbathDate(targetSabbathDate)) {
-      // Reject invalid dates to protect archive integrity
       return NextResponse.json(
         {
           success: false,
@@ -73,12 +72,24 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Resolve destination folder inside managed Google Drive archive boundary
-    // Client can NEVER supply arbitrary folder IDs. Hierarchy is strictly ensured idempotently.
-    const destination = await resolveSabbathDestinationFolder(category, targetSabbathDate);
+    let destination;
+    try {
+      destination = await resolveSabbathDestinationFolder(category, targetSabbathDate);
+    } catch (destErr) {
+      const classified = classifyDriveError(destErr);
+      console.error('[Upload] Destination folder resolution error:', classified.message);
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Gagal menyiapkan folder tujuan di Google Drive [${classified.kind}]: ${classified.message}`,
+        },
+        { status: 500 }
+      );
+    }
 
     const uploadedResults: FileItem[] = [];
 
-    // 3. Process each file with duplicate collision avoidance (no silent overwrite)
+    // 3. Process each file with duplicate collision avoidance
     for (const file of files) {
       const safeFileName = await getNonCollidingFileName(destination.folderId, file.name);
       const buffer = Buffer.from(await file.arrayBuffer());
@@ -86,12 +97,25 @@ export async function POST(req: NextRequest) {
       const mimeType = file.type || 'application/octet-stream';
       const fileType = determineFileType(mimeType, safeFileName);
 
-      const driveRes = await uploadFileToDrive({
-        folderId: destination.folderId,
-        name: safeFileName,
-        mimeType,
-        stream,
-      });
+      let driveRes;
+      try {
+        driveRes = await uploadFileToDrive({
+          folderId: destination.folderId,
+          name: safeFileName,
+          mimeType,
+          stream,
+        });
+      } catch (uploadErr) {
+        const classified = classifyDriveError(uploadErr);
+        console.error(`[Upload] Drive upload failed for '${safeFileName}':`, classified.message);
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Gagal mengunggah berkas '${safeFileName}' ke Google Drive [${classified.kind}]: ${classified.message}`,
+          },
+          { status: 500 }
+        );
+      }
 
       const fileItem: FileItem = {
         id: driveRes.id,
@@ -112,7 +136,7 @@ export async function POST(req: NextRequest) {
         isRandomEligible: fileType === 'photo' || fileType === 'video',
       };
 
-      await indexFile(fileItem);
+      await indexFile(fileItem, token);
       uploadedResults.push(fileItem);
     }
 
@@ -141,7 +165,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error('API Upload error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Proses upload berkas gagal';
-    return NextResponse.json({ success: false, error: errorMessage }, { status: 500 });
+    const classified = classifyDriveError(error);
+    return NextResponse.json({ success: false, error: classified.message }, { status: 500 });
   }
 }

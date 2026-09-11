@@ -48,6 +48,16 @@ export function getFirebaseAdmin(): App | null {
 }
 
 export function getAdminFirestore(): Firestore | null {
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL?.trim();
+  const privateKey = process.env.FIREBASE_PRIVATE_KEY?.trim();
+
+  // ONLY instantiate Firestore Admin if explicit service account credentials are provided.
+  // Without credentials, @google-cloud/firestore attempts to load ADC and throws:
+  // "Could not load the default credentials" in serverless environments like Vercel.
+  if (!clientEmail || !privateKey) {
+    return null;
+  }
+
   const app = getFirebaseAdmin();
   if (app) {
     return getFirestore(app);

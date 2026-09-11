@@ -2,8 +2,7 @@ import { google } from 'googleapis';
 import { Readable } from 'stream';
 import { ArchiveCategory } from './types';
 import { parseSabbathDetails, isValidSabbathDate } from './sabbath';
-import fs from 'fs';
-import path from 'path';
+
 
 export interface DriveFolderResult {
   id: string;
@@ -46,12 +45,19 @@ export function classifyDriveError(err: unknown): DriveError {
   const reason = errorObj?.errors?.[0]?.reason || '';
 
   if (
-    status === 401 ||
-    reason === 'authError' ||
     msg.includes('invalid_grant') ||
-    msg.includes('Could not load the default credentials')
+    reason === 'authError' ||
+    status === 401 ||
+    msg.includes('unauthorized_client') ||
+    msg.includes('invalid_client')
   ) {
-    return new DriveError('AUTH_ERROR', `Autentikasi Google Drive gagal: ${msg}`, status || 401);
+    let specificMsg = `Autentikasi Google Drive OAuth gagal: ${msg}`;
+    if (msg.includes('invalid_grant')) {
+      specificMsg = 'Google Drive refresh token invalid atau sudah kedaluwarsa (invalid_grant). Mohon perbarui GOOGLE_DRIVE_REFRESH_TOKEN.';
+    } else if (msg.includes('unauthorized_client') || msg.includes('invalid_client')) {
+      specificMsg = 'Kredensial OAuth Google Drive (GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET) tidak valid.';
+    }
+    return new DriveError('AUTH_ERROR', specificMsg, status || 401);
   }
 
   if (
@@ -67,20 +73,26 @@ export function classifyDriveError(err: unknown): DriveError {
     return new DriveError('NOT_FOUND', `Folder atau berkas tidak ditemukan di Google Drive: ${msg}`, 404);
   }
 
+  if (msg.includes('Could not load the default credentials')) {
+    return new DriveError('AUTH_ERROR', 'Google Drive kredensial server tidak ditemukan (ADC tidak tersedia di Vercel). Pastikan User OAuth dikonfigurasi.', 401);
+  }
+
   return new DriveError('API_ERROR', `Kesalahan Google Drive API (${status || 'unknown'}): ${msg}`, status);
 }
 
 /**
  * Returns an authenticated Google Drive client:
- * 1. Primary: User OAuth 2.0 (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_DRIVE_REFRESH_TOKEN)
+ * 1. Primary & only strategy in production: User OAuth 2.0 (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_DRIVE_REFRESH_TOKEN)
  *    -> Operates directly on the user's personal Google Drive (My Drive).
- * 2. Secondary: Google Application Default Credentials (ADC) from user login.
- * 3. Fallback: Service Account (if configured).
+ * 2. Secondary fallback: Explicit Service Account (if configured via FIREBASE_CLIENT_EMAIL & FIREBASE_PRIVATE_KEY).
+ *
+ * NOTE: Application Default Credentials (ADC) and local service-account.json files are EXPLICITLY NOT USED.
+ * Silent fallback to ADC causes "Could not load the default credentials" in serverless environments like Vercel.
  */
 export function getGoogleDriveClient() {
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const refreshToken = process.env.GOOGLE_DRIVE_REFRESH_TOKEN;
+  const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
+  const refreshToken = process.env.GOOGLE_DRIVE_REFRESH_TOKEN?.trim();
 
   // 1. PRIMARY: User OAuth 2.0 with Refresh Token (Personal My Drive)
   if (clientId && clientSecret && refreshToken) {
@@ -89,20 +101,9 @@ export function getGoogleDriveClient() {
     return google.drive({ version: 'v3', auth: oauth2Client });
   }
 
-  // 2. Google Application Default Credentials (ADC) from user login
-  const appData = process.env.APPDATA || '';
-  const gcloudAdcPath = path.join(appData, 'gcloud', 'application_default_credentials.json');
-  const googleAppCreds = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-  if ((googleAppCreds && fs.existsSync(googleAppCreds)) || (gcloudAdcPath && fs.existsSync(gcloudAdcPath))) {
-    const auth = new google.auth.GoogleAuth({
-      scopes: ['https://www.googleapis.com/auth/drive'],
-    });
-    return google.drive({ version: 'v3', auth });
-  }
-
-  // 3. Fallback Service Account environment variables
-  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-  let privateKey = process.env.FIREBASE_PRIVATE_KEY;
+  // 2. Secondary: Explicit Service Account (only if explicitly set in environment)
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL?.trim();
+  let privateKey = process.env.FIREBASE_PRIVATE_KEY?.trim();
   if (clientEmail && privateKey) {
     privateKey = privateKey.replace(/\\n/g, '\n');
     const auth = new google.auth.JWT({
@@ -113,50 +114,58 @@ export function getGoogleDriveClient() {
     return google.drive({ version: 'v3', auth });
   }
 
-  // 4. Local service-account.json in project root
-  const localServiceAccountPath = path.resolve(process.cwd(), 'service-account.json');
-  if (fs.existsSync(localServiceAccountPath)) {
-    const auth = new google.auth.GoogleAuth({
-      keyFile: localServiceAccountPath,
-      scopes: ['https://www.googleapis.com/auth/drive'],
-    });
-    return google.drive({ version: 'v3', auth });
-  }
-
+  // NO silent fallback to ADC or local service-account.json files!
   return null;
 }
 
 /**
- * Returns descriptive status of current Google Drive authentication
+ * Returns descriptive status and safe diagnostics of current Google Drive authentication.
+ * Never exposes actual secrets.
  */
 export function getDriveAuthInfo(): {
   isAuthenticated: boolean;
-  strategy: 'oauth_user' | 'adc_user' | 'service_account' | 'none';
+  strategy: 'oauth_user' | 'service_account' | 'none';
   targetStorage: string;
+  diagnostics: {
+    clientId: 'PRESENT' | 'MISSING';
+    clientSecret: 'PRESENT' | 'MISSING';
+    refreshToken: 'PRESENT' | 'MISSING';
+    rootFolderId: 'PRESENT' | 'MISSING';
+    dokumentasiFolderId: 'PRESENT' | 'MISSING';
+    fileIbadahFolderId: 'PRESENT' | 'MISSING';
+  };
 } {
-  if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && process.env.GOOGLE_DRIVE_REFRESH_TOKEN) {
+  const hasClientId = Boolean(process.env.GOOGLE_CLIENT_ID?.trim());
+  const hasClientSecret = Boolean(process.env.GOOGLE_CLIENT_SECRET?.trim());
+  const hasRefreshToken = Boolean(process.env.GOOGLE_DRIVE_REFRESH_TOKEN?.trim());
+  const hasRootId = Boolean(process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID?.trim());
+  const hasDokId = Boolean(process.env.GOOGLE_DRIVE_DOKUMENTASI_FOLDER_ID?.trim());
+  const hasIbadahId = Boolean(process.env.GOOGLE_DRIVE_FILE_IBADAH_FOLDER_ID?.trim());
+
+  const diagnostics = {
+    clientId: hasClientId ? ('PRESENT' as const) : ('MISSING' as const),
+    clientSecret: hasClientSecret ? ('PRESENT' as const) : ('MISSING' as const),
+    refreshToken: hasRefreshToken ? ('PRESENT' as const) : ('MISSING' as const),
+    rootFolderId: hasRootId ? ('PRESENT' as const) : ('MISSING' as const),
+    dokumentasiFolderId: hasDokId ? ('PRESENT' as const) : ('MISSING' as const),
+    fileIbadahFolderId: hasIbadahId ? ('PRESENT' as const) : ('MISSING' as const),
+  };
+
+  if (hasClientId && hasClientSecret && hasRefreshToken) {
     return {
       isAuthenticated: true,
       strategy: 'oauth_user',
       targetStorage: 'My Drive Pribadi Akun Google (User OAuth 2.0)',
+      diagnostics,
     };
   }
 
-  const appData = process.env.APPDATA || '';
-  const gcloudAdcPath = path.join(appData, 'gcloud', 'application_default_credentials.json');
-  if (fs.existsSync(gcloudAdcPath) || (process.env.GOOGLE_APPLICATION_CREDENTIALS && fs.existsSync(process.env.GOOGLE_APPLICATION_CREDENTIALS))) {
-    return {
-      isAuthenticated: true,
-      strategy: 'adc_user',
-      targetStorage: 'My Drive Pribadi Akun Google (ADC Login)',
-    };
-  }
-
-  if (process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY) {
+  if (process.env.FIREBASE_CLIENT_EMAIL?.trim() && process.env.FIREBASE_PRIVATE_KEY?.trim()) {
     return {
       isAuthenticated: true,
       strategy: 'service_account',
       targetStorage: 'Service Account Storage',
+      diagnostics,
     };
   }
 
@@ -164,6 +173,7 @@ export function getDriveAuthInfo(): {
     isAuthenticated: false,
     strategy: 'none',
     targetStorage: 'Belum Terhubung',
+    diagnostics,
   };
 }
 
@@ -317,27 +327,31 @@ export async function uploadFileToDrive(params: {
 }): Promise<{ id: string; webViewLink?: string; webContentLink?: string; size?: number }> {
   const drive = getGoogleDriveClient();
   if (!drive) {
-    throw new Error('Google Drive client is not authenticated');
+    throw new DriveError('AUTH_ERROR', 'Google Drive client tidak terautentikasi. Kredensial User OAuth tidak ditemukan.', 401);
   }
 
-  const res = await drive.files.create({
-    requestBody: {
-      name: params.name,
-      parents: [params.folderId],
-    },
-    media: {
-      mimeType: params.mimeType,
-      body: params.stream,
-    },
-    fields: 'id, name, webViewLink, webContentLink, size',
-  });
+  try {
+    const res = await drive.files.create({
+      requestBody: {
+        name: params.name,
+        parents: [params.folderId],
+      },
+      media: {
+        mimeType: params.mimeType,
+        body: params.stream,
+      },
+      fields: 'id, name, webViewLink, webContentLink, size',
+    });
 
-  return {
-    id: res.data.id || '',
-    webViewLink: res.data.webViewLink || undefined,
-    webContentLink: res.data.webContentLink || undefined,
-    size: res.data.size ? parseInt(res.data.size, 10) : undefined,
-  };
+    return {
+      id: res.data.id || '',
+      webViewLink: res.data.webViewLink || undefined,
+      webContentLink: res.data.webContentLink || undefined,
+      size: res.data.size ? parseInt(res.data.size, 10) : undefined,
+    };
+  } catch (err) {
+    throw classifyDriveError(err);
+  }
 }
 
 /**
