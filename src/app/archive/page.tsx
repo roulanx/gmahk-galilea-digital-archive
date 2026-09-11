@@ -1,6 +1,6 @@
-﻿'use client';
+'use client';
 
-import React, { useEffect, useState, Suspense } from 'react';
+import React, { useEffect, useState, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   Image as ImageIcon,
@@ -9,6 +9,7 @@ import {
   Search,
 } from 'lucide-react';
 import { ArchiveCategory, FileItem, SabbathInfo } from '@/lib/types';
+import { getNearestSabbath } from '@/lib/sabbath';
 import MediaViewer from '@/components/MediaViewer';
 
 function ArchiveContent() {
@@ -16,11 +17,20 @@ function ArchiveContent() {
   const initialCategory = (searchParams.get('category') as ArchiveCategory) || 'documentation';
   const initialSabbath = searchParams.get('sabbath') || '';
 
-  const [year, setYear] = useState<number>(2026);
-  const [quarter, setQuarter] = useState<number>(3);
+  const initialNearest = getNearestSabbath();
+  const [year, setYear] = useState<number>(initialNearest.year);
+  const [quarter, setQuarter] = useState<number>(initialNearest.quarter);
   const [category, setCategory] = useState<ArchiveCategory>(initialCategory);
   const [filterType, setFilterType] = useState<'all' | 'photo' | 'video' | 'document'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+
+  const [availableYears, setAvailableYears] = useState<number[]>([initialNearest.year, initialNearest.year - 1]);
+  const [quarters, setQuarters] = useState<Array<{ quarter: number; title: string }>>([
+    { quarter: 1, title: 'Triwulan I' },
+    { quarter: 2, title: 'Triwulan II' },
+    { quarter: 3, title: 'Triwulan III' },
+    { quarter: 4, title: 'Triwulan IV' },
+  ]);
 
   const [sabbaths, setSabbaths] = useState<SabbathInfo[]>([]);
   const [selectedSabbath, setSelectedSabbath] = useState<string>(initialSabbath);
@@ -28,24 +38,37 @@ function ArchiveContent() {
   const [loading, setLoading] = useState(true);
 
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+  const lastFetchedKeyRef = useRef<string>('');
 
   useEffect(() => {
     let isMounted = true;
-    const sabbath = selectedSabbath;
-    const url = `/api/archive/tree?year=${year}&quarter=${quarter}&category=${category}${sabbath ? `&sabbath=${sabbath}` : ''}`;
+    const fetchKey = `${year}-${quarter}-${category}-${selectedSabbath}`;
+    if (lastFetchedKeyRef.current === fetchKey) {
+      return;
+    }
+
+    const sabbathParam = selectedSabbath ? `&sabbath=${encodeURIComponent(selectedSabbath)}` : '';
+    const url = `/api/archive/tree?year=${year}&quarter=${quarter}&category=${category}${sabbathParam}`;
 
     fetch(url)
       .then((res) => res.json())
       .then((json) => {
-        if (isMounted && json.success) {
-          setSabbaths(json.data.sabbaths);
-          if (!selectedSabbath && json.data.selectedSabbath) {
+        if (isMounted && json.success && json.data) {
+          lastFetchedKeyRef.current = `${year}-${quarter}-${category}-${json.data.selectedSabbath || selectedSabbath}`;
+          if (json.data.availableYears?.length) {
+            setAvailableYears(json.data.availableYears);
+          }
+          if (json.data.quarters?.length) {
+            setQuarters(json.data.quarters);
+          }
+          setSabbaths(json.data.sabbaths || []);
+          if (json.data.selectedSabbath && selectedSabbath !== json.data.selectedSabbath) {
             setSelectedSabbath(json.data.selectedSabbath);
           }
-          setFiles(json.data.files);
+          setFiles(json.data.files || []);
         }
       })
-      .catch((err) => console.error(err))
+      .catch((err) => console.error('Archive tree fetch error:', err))
       .finally(() => {
         if (isMounted) setLoading(false);
       });
@@ -95,7 +118,12 @@ function ArchiveContent() {
             {/* Category Toggle */}
             <div className="flex flex-col gap-2 bg-white/5 border border-white/10 p-2 rounded-2xl w-full md:w-auto">
               <button
-                onClick={() => { setLoading(true); setCategory('documentation'); }}
+                onClick={() => {
+                  if (category !== 'documentation') {
+                    setLoading(true);
+                    setCategory('documentation');
+                  }
+                }}
                 className={`px-6 py-3 rounded-xl text-xs font-mono tracking-widest uppercase transition-all ${
                   category === 'documentation' ? 'bg-white text-black' : 'text-white/50 hover:text-white'
                 }`}
@@ -103,7 +131,12 @@ function ArchiveContent() {
                 FOTO & VIDEO
               </button>
               <button
-                onClick={() => { setLoading(true); setCategory('worship'); }}
+                onClick={() => {
+                  if (category !== 'worship') {
+                    setLoading(true);
+                    setCategory('worship');
+                  }
+                }}
                 className={`px-6 py-3 rounded-xl text-xs font-mono tracking-widest uppercase transition-all ${
                   category === 'worship' ? 'bg-white text-black' : 'text-white/50 hover:text-white'
                 }`}
@@ -120,25 +153,39 @@ function ArchiveContent() {
             <span className="editorial-meta">GALILEA /</span>
             <select
               value={year}
-              onChange={(e) => { setLoading(true); setYear(parseInt(e.target.value, 10)); }}
+              onChange={(e) => {
+                const newYear = parseInt(e.target.value, 10);
+                setLoading(true);
+                setSelectedSabbath('');
+                setYear(newYear);
+              }}
               className="bg-transparent text-2xl sm:text-4xl font-light text-white focus:outline-none cursor-pointer appearance-none"
             >
-              <option className="bg-black text-white" value={2026}>2026</option>
-              <option className="bg-black text-white" value={2025}>2025</option>
+              {availableYears.map((y) => (
+                <option key={y} className="bg-black text-white" value={y}>
+                  {y}
+                </option>
+              ))}
             </select>
 
             <div className="w-[1px] h-8 bg-white/10 hidden sm:block" />
 
             <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
-              {[1, 2, 3, 4].map((q) => (
+              {quarters.map((q) => (
                 <button
-                  key={q}
-                  onClick={() => { setLoading(true); setQuarter(q); }}
+                  key={q.quarter}
+                  onClick={() => {
+                    if (quarter !== q.quarter) {
+                      setLoading(true);
+                      setSelectedSabbath('');
+                      setQuarter(q.quarter);
+                    }
+                  }}
                   className={`px-5 py-2.5 rounded-full text-[10px] font-mono tracking-widest uppercase transition-all whitespace-nowrap ${
-                    quarter === q ? 'bg-white text-black' : 'bg-white/5 text-white/50 hover:text-white hover:bg-white/10'
+                    quarter === q.quarter ? 'bg-white text-black' : 'bg-white/5 text-white/50 hover:text-white hover:bg-white/10'
                   }`}
                 >
-                  TRIWULAN {['I','II','III','IV'][q-1]}
+                  {q.title.toUpperCase()}
                 </button>
               ))}
             </div>
@@ -161,11 +208,16 @@ function ArchiveContent() {
           <div className="py-6 overflow-x-auto scrollbar-none flex items-center gap-3 border-b border-white/10">
             <span className="editorial-meta shrink-0 mr-2">SABAT:</span>
             {sabbaths.map((sab) => {
-              const isSelected = selectedSabbath === sab.date;
+              const isSelected = selectedSabbath === sab.date || selectedSabbath === sab.formattedTitle;
               return (
                 <button
                   key={sab.date}
-                  onClick={() => { setLoading(true); setSelectedSabbath(sab.date); }}
+                  onClick={() => {
+                    if (selectedSabbath !== sab.date) {
+                      setLoading(true);
+                      setSelectedSabbath(sab.date);
+                    }
+                  }}
                   className={`px-5 py-3 rounded-full text-xs font-mono tracking-widest uppercase whitespace-nowrap transition-all shrink-0 ${
                     isSelected ? 'border border-white text-white' : 'border border-transparent text-white/40 hover:text-white'
                   }`}

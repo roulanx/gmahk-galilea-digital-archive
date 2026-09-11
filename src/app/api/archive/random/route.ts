@@ -1,14 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRandomArchiveSample } from '@/lib/firestore';
+import { getRandomFilesFromDrive } from '@/lib/drive';
 
-
+export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const count = parseInt(searchParams.get('count') || '6', 10);
 
-    const randomItems = await getRandomArchiveSample(count);
+    let randomItems = await getRandomArchiveSample(count);
+    if (!randomItems || randomItems.length === 0) {
+      randomItems = await getRandomFilesFromDrive(count);
+    }
 
     return NextResponse.json({
       success: true,

@@ -1,43 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/auth-server';
 import { getDefaultUploadSabbath, isValidSabbathDate } from '@/lib/sabbath';
-import { uploadFileToDrive, resolveSabbathDestinationFolder, getNonCollidingFileName, classifyDriveError } from '@/lib/drive';
+import {
+  uploadFileToDrive,
+  resolveSabbathDestinationFolder,
+  getNonCollidingFileName,
+  classifyDriveError,
+  determineFileType,
+} from '@/lib/drive';
 import { indexFile, logSystemEvent } from '@/lib/firestore';
-import { ArchiveCategory, FileFormatType, FileItem } from '@/lib/types';
+import { ArchiveCategory, FileItem } from '@/lib/types';
 import { Readable } from 'stream';
-
-function determineFileType(mimeType: string, filename: string): FileFormatType {
-  const ext = filename.split('.').pop()?.toLowerCase() || '';
-
-  if (mimeType.startsWith('image/')) return 'photo';
-  if (mimeType.startsWith('video/')) return 'video';
-  if (mimeType === 'application/pdf' || ext === 'pdf') return 'pdf';
-  if (
-    ext === 'ppt' ||
-    ext === 'pptx' ||
-    mimeType.includes('presentation') ||
-    mimeType.includes('powerpoint')
-  ) {
-    return 'presentation';
-  }
-  if (
-    ext === 'doc' ||
-    ext === 'docx' ||
-    mimeType.includes('word') ||
-    mimeType.includes('document')
-  ) {
-    return 'document';
-  }
-  if (
-    ext === 'xls' ||
-    ext === 'xlsx' ||
-    mimeType.includes('spreadsheet') ||
-    mimeType.includes('excel')
-  ) {
-    return 'spreadsheet';
-  }
-  return 'other';
-}
 
 export async function POST(req: NextRequest) {
   try {

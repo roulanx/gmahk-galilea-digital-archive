@@ -1,7 +1,16 @@
 import { google } from 'googleapis';
 import { Readable } from 'stream';
-import { ArchiveCategory } from './types';
-import { parseSabbathDetails, isValidSabbathDate } from './sabbath';
+import { ArchiveCategory, FileFormatType, FileItem, SabbathInfo } from './types';
+import {
+  parseSabbathDetails,
+  isValidSabbathDate,
+  getSabbathsInQuarter,
+  getQuarterTitle,
+  getNearestSabbath,
+  getWitaDateParts,
+  formatSabbathTitle,
+  getQuarterFromMonth,
+} from './sabbath';
 
 
 export interface DriveFolderResult {
@@ -467,4 +476,541 @@ export async function resolveSabbathDestinationFolder(
     sabbathTitle: formattedTitle,
     isExisting: sabbathRes.isExisting,
   };
+}
+
+/**
+ * Accurately determines file format category based on mimeType and extension
+ */
+export function determineFileType(mimeType: string, filename: string): FileFormatType {
+  const ext = filename.split('.').pop()?.toLowerCase() || '';
+
+  if (mimeType.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'svg'].includes(ext)) {
+    return 'photo';
+  }
+  if (mimeType.startsWith('video/') || ['mp4', 'mkv', 'mov', 'avi', 'webm', '3gp'].includes(ext)) {
+    return 'video';
+  }
+  if (mimeType === 'application/pdf' || ext === 'pdf') {
+    return 'pdf';
+  }
+  if (
+    ext === 'ppt' ||
+    ext === 'pptx' ||
+    ext === 'key' ||
+    mimeType.includes('presentation') ||
+    mimeType.includes('powerpoint')
+  ) {
+    return 'presentation';
+  }
+  if (
+    ext === 'doc' ||
+    ext === 'docx' ||
+    ext === 'txt' ||
+    ext === 'rtf' ||
+    mimeType.includes('word') ||
+    mimeType.includes('document')
+  ) {
+    return 'document';
+  }
+  if (
+    ext === 'xls' ||
+    ext === 'xlsx' ||
+    ext === 'csv' ||
+    mimeType.includes('spreadsheet') ||
+    mimeType.includes('excel')
+  ) {
+    return 'spreadsheet';
+  }
+  return 'other';
+}
+
+const INDO_MONTH_MAP: Record<string, number> = {
+  januari: 1, jan: 1,
+  februari: 2, pebruari: 2, feb: 2,
+  maret: 3, mar: 3,
+  april: 4, apr: 4,
+  mei: 5, may: 5,
+  juni: 6, jun: 6,
+  juli: 7, jul: 7,
+  agustus: 8, ags: 8, aug: 8,
+  september: 9, sep: 9,
+  oktober: 10, okt: 10, oct: 10,
+  november: 11, nopember: 11, nov: 11,
+  desember: 12, des: 12, dec: 12,
+};
+
+/**
+ * Parses Indonesian date folder names into ISO YYYY-MM-DD
+ * Examples: '12 September 2026', 'Sabat, 12 September 2026', '2026-09-12'
+ */
+export function parseIndonesianDateStringToIso(str: string): string | null {
+  if (!str) return null;
+  const trimmed = str.trim();
+
+  // 1. ISO format: YYYY-MM-DD
+  const isoMatch = trimmed.match(/\b(20\d{2})-(\d{2})-(\d{2})\b/);
+  if (isoMatch) {
+    return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+  }
+
+  // 2. Indonesian word format: e.g. "12 September 2026" or "Sabat, 12 September 2026"
+  const wordMatch = trimmed.match(/(\d{1,2})\s+([A-Za-z]+)\s+(20\d{2})/);
+  if (wordMatch) {
+    const day = parseInt(wordMatch[1], 10);
+    const mStr = wordMatch[2].toLowerCase();
+    const year = parseInt(wordMatch[3], 10);
+    const month = INDO_MONTH_MAP[mStr];
+    if (month && day >= 1 && day <= 31) {
+      return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    }
+  }
+
+  // 3. DD-MM-YYYY or DD/MM/YYYY
+  const slashMatch = trimmed.match(/(\d{1,2})[-/](\d{1,2})[-/](20\d{2})/);
+  if (slashMatch) {
+    const d = parseInt(slashMatch[1], 10);
+    const m = parseInt(slashMatch[2], 10);
+    const y = parseInt(slashMatch[3], 10);
+    if (m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+      return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Parses quarter number (1..4) from folder names like 'Triwulan I', 'Triwulan 3', etc.
+ */
+export function parseQuarterFromFolderName(name: string): number | null {
+  if (!name) return null;
+  const n = name.trim().toUpperCase();
+  if (n.includes('TRIWULAN IV') || n.includes('TRIWULAN 4') || n.includes('Q4') || n.includes('T4')) return 4;
+  if (n.includes('TRIWULAN III') || n.includes('TRIWULAN 3') || n.includes('Q3') || n.includes('T3')) return 3;
+  if (n.includes('TRIWULAN II') || n.includes('TRIWULAN 2') || n.includes('Q2') || n.includes('T2')) return 2;
+  if (n.includes('TRIWULAN I') || n.includes('TRIWULAN 1') || n.includes('Q1') || n.includes('T1')) return 1;
+  return null;
+}
+
+export interface DiscoverArchiveTreeParams {
+  category?: ArchiveCategory;
+  year?: number;
+  quarter?: number;
+  sabbath?: string;
+}
+
+export interface DiscoveredArchiveTreeResult {
+  availableYears: number[];
+  selectedYear: number;
+  quarters: Array<{ quarter: number; title: string; folderId?: string }>;
+  selectedQuarter: number;
+  sabbaths: SabbathInfo[];
+  selectedSabbath: string;
+  files: FileItem[];
+}
+
+/**
+ * Dynamically discovers the real Google Drive folder hierarchy:
+ * Category Root -> Year Folders -> Quarter Folders -> Sabbath & Activity Folders -> Real Files
+ * Uses Google Drive as ground truth, gracefully integrates Firestore metadata,
+ * and ensures active Sabbath always points to the nearest active Sabbath in WITA.
+ */
+export async function discoverArchiveTree(
+  params: DiscoverArchiveTreeParams = {}
+): Promise<DiscoveredArchiveTreeResult> {
+  const nearest = getNearestSabbath();
+  const targetCategory: ArchiveCategory = params.category || 'documentation';
+  const todayStr = getWitaDateParts().dateStr;
+
+  const drive = getGoogleDriveClient();
+  if (!drive) {
+    // Offline / dev fallback when no Google credentials configured
+    const selectedYear = params.year || nearest.year;
+    const selectedQuarter = params.quarter || nearest.quarter;
+    const availableYears = [selectedYear, selectedYear - 1];
+    const quarters = [1, 2, 3, 4].map((q) => ({
+      quarter: q,
+      title: getQuarterTitle(q),
+    }));
+    const sabbaths = getSabbathsInQuarter(selectedYear, selectedQuarter);
+    let activeSabbath = params.sabbath || '';
+    if (!activeSabbath) {
+      if (selectedYear === nearest.year && selectedQuarter === nearest.quarter) {
+        activeSabbath = nearest.date;
+      } else {
+        activeSabbath = sabbaths.length > 0 ? sabbaths[0].date : '';
+      }
+    }
+    let files: FileItem[] = [];
+    try {
+      const { getFilesBySabbath } = await import('./firestore');
+      files = await getFilesBySabbath(activeSabbath, targetCategory);
+    } catch {
+      files = [];
+    }
+    return {
+      availableYears,
+      selectedYear,
+      quarters,
+      selectedQuarter,
+      sabbaths,
+      selectedSabbath: activeSabbath,
+      files,
+    };
+  }
+
+  // 1. Identify Category Root Folder in Google Drive
+  let categoryFolderId =
+    targetCategory === 'documentation'
+      ? process.env.GOOGLE_DRIVE_DOKUMENTASI_FOLDER_ID?.trim()
+      : process.env.GOOGLE_DRIVE_FILE_IBADAH_FOLDER_ID?.trim();
+
+  // If specific category folder ID is not explicitly set, search inside root folder
+  if (!categoryFolderId && process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID?.trim()) {
+    const rootId = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID.trim();
+    const targetName = targetCategory === 'documentation' ? 'Dokumentasi' : 'File Ibadah';
+    categoryFolderId = (await findFolderByName(rootId, targetName)) || undefined;
+  }
+
+  // 2. Discover Available Years in Google Drive
+  const yearFoldersMap = new Map<number, string>();
+  if (categoryFolderId) {
+    try {
+      const yearsRes = await drive.files.list({
+        q: `'${categoryFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
+        fields: 'files(id, name)',
+        spaces: 'drive',
+        pageSize: 100,
+      });
+      for (const f of yearsRes.data.files || []) {
+        if (f.id && f.name) {
+          const m = f.name.match(/\b(20\d{2})\b/);
+          if (m) {
+            yearFoldersMap.set(parseInt(m[1], 10), f.id);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('[Drive] Error listing year folders:', err);
+    }
+  }
+
+  // Guarantee current year is at least present
+  if (!yearFoldersMap.has(nearest.year)) {
+    yearFoldersMap.set(nearest.year, '');
+  }
+
+  const availableYears = Array.from(yearFoldersMap.keys()).sort((a, b) => b - a);
+
+  // Determine Selected Year
+  let selectedYear = params.year;
+  if (!selectedYear || !availableYears.includes(selectedYear)) {
+    selectedYear = availableYears.includes(nearest.year) ? nearest.year : availableYears[0];
+  }
+
+  let selectedYearFolderId = yearFoldersMap.get(selectedYear);
+  if ((!selectedYearFolderId || selectedYearFolderId === '') && categoryFolderId) {
+    selectedYearFolderId = (await findFolderByName(categoryFolderId, selectedYear.toString())) || undefined;
+  }
+
+  // 3. Discover Quarters for Selected Year
+  const quarterFoldersMap = new Map<number, { id: string; name: string }>();
+  if (selectedYearFolderId) {
+    try {
+      const qRes = await drive.files.list({
+        q: `'${selectedYearFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
+        fields: 'files(id, name)',
+        spaces: 'drive',
+        pageSize: 50,
+      });
+      for (const f of qRes.data.files || []) {
+        if (f.id && f.name) {
+          const qNum = parseQuarterFromFolderName(f.name);
+          if (qNum) {
+            quarterFoldersMap.set(qNum, { id: f.id, name: f.name });
+          }
+        }
+      }
+    } catch (err) {
+      console.error('[Drive] Error listing quarter folders:', err);
+    }
+  }
+
+  const quarters = [1, 2, 3, 4].map((q) => {
+    const discovered = quarterFoldersMap.get(q);
+    return {
+      quarter: q,
+      title: discovered ? discovered.name : getQuarterTitle(q),
+      folderId: discovered?.id,
+    };
+  });
+
+  // Determine Selected Quarter
+  let selectedQuarter = params.quarter;
+  if (!selectedQuarter || selectedQuarter < 1 || selectedQuarter > 4) {
+    if (selectedYear === nearest.year) {
+      selectedQuarter = nearest.quarter;
+    } else if (quarterFoldersMap.size > 0) {
+      selectedQuarter = Math.max(...quarterFoldersMap.keys());
+    } else {
+      selectedQuarter = 1;
+    }
+  }
+
+  let selectedQuarterFolderId = quarterFoldersMap.get(selectedQuarter)?.id;
+  if (!selectedQuarterFolderId && selectedYearFolderId) {
+    selectedQuarterFolderId = (await findFolderByName(selectedYearFolderId, getQuarterTitle(selectedQuarter))) || undefined;
+  }
+
+  // 4. Discover Sabbaths & Activity Folders in Quarter
+  const discoveredSabbathsMap = new Map<string, { id: string; name: string }>();
+  const customFolders: Array<{ id: string; name: string }> = [];
+
+  if (selectedQuarterFolderId) {
+    try {
+      const sRes = await drive.files.list({
+        q: `'${selectedQuarterFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
+        fields: 'files(id, name)',
+        spaces: 'drive',
+        pageSize: 100,
+      });
+      for (const f of sRes.data.files || []) {
+        if (f.id && f.name) {
+          const iso = parseIndonesianDateStringToIso(f.name);
+          if (iso) {
+            discoveredSabbathsMap.set(iso, { id: f.id, name: f.name });
+          } else {
+            customFolders.push({ id: f.id, name: f.name });
+          }
+        }
+      }
+    } catch (err) {
+      console.error('[Drive] Error listing sabbath folders:', err);
+    }
+  }
+
+  // Merge with standard calculated Sabbaths for this quarter
+  const standardSabbaths = getSabbathsInQuarter(selectedYear, selectedQuarter);
+  const sabbaths: SabbathInfo[] = standardSabbaths.map((sab) => {
+    const discovered = discoveredSabbathsMap.get(sab.date);
+    return {
+      ...sab,
+      documentationFolderId: targetCategory === 'documentation' ? discovered?.id : undefined,
+      worshipFolderId: targetCategory === 'worship' ? discovered?.id : undefined,
+    };
+  });
+
+  // Add any discovered date folders not in standard Saturdays
+  for (const [isoDate, folder] of discoveredSabbathsMap.entries()) {
+    if (!sabbaths.some((s) => s.date === isoDate)) {
+      const [y, m] = isoDate.split('-').map(Number);
+      const q = getQuarterFromMonth(m);
+      sabbaths.push({
+        date: isoDate,
+        formattedTitle: formatSabbathTitle(isoDate),
+        year: y,
+        quarter: q,
+        quarterTitle: getQuarterTitle(q),
+        isPast: isoDate < todayStr,
+        isToday: isoDate === todayStr,
+        isUpcoming: isoDate >= todayStr,
+        documentationFolderId: targetCategory === 'documentation' ? folder.id : undefined,
+        worshipFolderId: targetCategory === 'worship' ? folder.id : undefined,
+      });
+    }
+  }
+
+  // Add custom activity folders (e.g. 'Kegiatan Khusus')
+  for (const cf of customFolders) {
+    sabbaths.push({
+      date: cf.name,
+      formattedTitle: cf.name,
+      year: selectedYear,
+      quarter: selectedQuarter,
+      quarterTitle: getQuarterTitle(selectedQuarter),
+      isPast: false,
+      isToday: false,
+      isUpcoming: false,
+      documentationFolderId: targetCategory === 'documentation' ? cf.id : undefined,
+      worshipFolderId: targetCategory === 'worship' ? cf.id : undefined,
+    });
+  }
+
+  // Sort sabbaths chronologically, custom folders follow
+  sabbaths.sort((a, b) => {
+    const aIsDate = /^\d{4}-\d{2}-\d{2}$/.test(a.date);
+    const bIsDate = /^\d{4}-\d{2}-\d{2}$/.test(b.date);
+    if (aIsDate && bIsDate) return a.date.localeCompare(b.date);
+    if (aIsDate && !bIsDate) return -1;
+    if (!aIsDate && bIsDate) return 1;
+    return a.formattedTitle.localeCompare(b.formattedTitle);
+  });
+
+  // 5. Determine Active Sabbath
+  let activeSabbath = '';
+  if (params.sabbath) {
+    const matched = sabbaths.find(
+      (s) => s.date === params.sabbath || s.formattedTitle === params.sabbath
+    );
+    if (matched) {
+      activeSabbath = matched.date;
+    }
+  }
+
+  if (!activeSabbath) {
+    if (selectedYear === nearest.year && selectedQuarter === nearest.quarter) {
+      // Current active quarter: auto-select nearest Sabbath in WITA
+      const nearestInQuarter = sabbaths.find((s) => s.date === nearest.date);
+      activeSabbath = nearestInQuarter ? nearestInQuarter.date : nearest.date;
+    } else {
+      // Previous or future quarter: pick latest folder with Drive presence, or first
+      const withDriveFolder = sabbaths.filter((s) =>
+        targetCategory === 'documentation' ? s.documentationFolderId : s.worshipFolderId
+      );
+      if (withDriveFolder.length > 0) {
+        activeSabbath = withDriveFolder[withDriveFolder.length - 1].date;
+      } else if (sabbaths.length > 0) {
+        activeSabbath = sabbaths[0].date;
+      }
+    }
+  }
+
+  // 6. Query Files for Active Sabbath directly from Google Drive
+  let activeFolderId: string | undefined;
+  const activeSabObj = sabbaths.find((s) => s.date === activeSabbath);
+  if (activeSabObj) {
+    activeFolderId =
+      targetCategory === 'documentation'
+        ? activeSabObj.documentationFolderId
+        : activeSabObj.worshipFolderId;
+  }
+
+  if (!activeFolderId && selectedQuarterFolderId && activeSabObj) {
+    // Search folder by title in Drive
+    activeFolderId = (await findFolderByName(selectedQuarterFolderId, activeSabObj.formattedTitle)) || undefined;
+    if (!activeFolderId && activeSabObj.formattedTitle.includes('Sabat, ')) {
+      const clean = activeSabObj.formattedTitle.replace('Sabat, ', '');
+      activeFolderId = (await findFolderByName(selectedQuarterFolderId, clean)) || undefined;
+    }
+  }
+
+  let driveFiles: FileItem[] = [];
+  if (activeFolderId) {
+    try {
+      const fRes = await drive.files.list({
+        q: `'${activeFolderId}' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false`,
+        fields: 'files(id, name, mimeType, size, webViewLink, webContentLink, thumbnailLink, createdTime)',
+        spaces: 'drive',
+        pageSize: 100,
+        orderBy: 'name asc',
+      });
+
+      driveFiles = (fRes.data.files || []).map((f) => ({
+        id: f.id || '',
+        name: f.name || 'Berkas Galilea',
+        mimeType: f.mimeType || 'application/octet-stream',
+        size: parseInt(f.size || '0', 10),
+        category: targetCategory,
+        fileType: determineFileType(f.mimeType || '', f.name || ''),
+        sabbathDate: activeSabbath,
+        sabbathTitle: activeSabObj?.formattedTitle || activeSabbath,
+        year: selectedYear,
+        quarter: selectedQuarter,
+        folderId: activeFolderId!,
+        thumbnailUrl: f.thumbnailLink ? f.thumbnailLink.replace(/=s\d+/, '=s800') : undefined,
+        webViewLink: f.webViewLink || undefined,
+        webContentLink: f.webContentLink || undefined,
+        uploadedAt: f.createdTime || new Date().toISOString(),
+        isRandomEligible: true,
+      }));
+    } catch (err) {
+      console.error('[Drive] Error listing files in sabbath folder:', err);
+    }
+  }
+
+  // Merge with Firestore if indexed
+  let firestoreFiles: FileItem[] = [];
+  try {
+    const { getFilesBySabbath } = await import('./firestore');
+    firestoreFiles = await getFilesBySabbath(activeSabbath, targetCategory);
+  } catch {
+    firestoreFiles = [];
+  }
+
+  const fileMap = new Map<string, FileItem>();
+  for (const ff of firestoreFiles) {
+    fileMap.set(ff.id, ff);
+  }
+  for (const df of driveFiles) {
+    const existing = fileMap.get(df.id);
+    if (existing) {
+      fileMap.set(df.id, {
+        ...existing,
+        thumbnailUrl: df.thumbnailUrl || existing.thumbnailUrl,
+        webViewLink: df.webViewLink || existing.webViewLink,
+        webContentLink: df.webContentLink || existing.webContentLink,
+        size: df.size || existing.size,
+      });
+    } else {
+      fileMap.set(df.id, df);
+    }
+  }
+
+  const files = Array.from(fileMap.values());
+
+  return {
+    availableYears,
+    selectedYear,
+    quarters,
+    selectedQuarter,
+    sabbaths,
+    selectedSabbath: activeSabbath,
+    files,
+  };
+}
+
+/**
+ * Fetches random images or videos directly from Google Drive for homepage showcase
+ */
+export async function getRandomFilesFromDrive(count: number = 6): Promise<FileItem[]> {
+  const drive = getGoogleDriveClient();
+  if (!drive) return [];
+
+  try {
+    const res = await drive.files.list({
+      q: "mimeType contains 'image/' and trashed = false",
+      fields: 'files(id, name, mimeType, size, webViewLink, webContentLink, thumbnailLink, createdTime, parents)',
+      spaces: 'drive',
+      pageSize: 40,
+      orderBy: 'createdTime desc',
+    });
+
+    const files = res.data.files || [];
+    if (files.length === 0) return [];
+
+    const shuffled = [...files].sort(() => 0.5 - Math.random());
+    const selected = shuffled.slice(0, count);
+
+    return selected.map((f) => ({
+      id: f.id || '',
+      name: f.name || 'Foto Galilea',
+      mimeType: f.mimeType || 'image/jpeg',
+      size: parseInt(f.size || '0', 10),
+      category: 'documentation',
+      fileType: determineFileType(f.mimeType || '', f.name || ''),
+      sabbathDate: '',
+      sabbathTitle: 'Galilea Archive',
+      year: new Date().getFullYear(),
+      quarter: 3,
+      folderId: f.parents?.[0] || '',
+      thumbnailUrl: f.thumbnailLink ? f.thumbnailLink.replace(/=s\d+/, '=s800') : undefined,
+      webViewLink: f.webViewLink || undefined,
+      webContentLink: f.webContentLink || undefined,
+      uploadedAt: f.createdTime || new Date().toISOString(),
+      isRandomEligible: true,
+    }));
+  } catch (err) {
+    console.error('[Drive] Error getting random files from Drive:', err);
+    return [];
+  }
 }
