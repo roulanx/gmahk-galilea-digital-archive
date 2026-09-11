@@ -1,7 +1,6 @@
-'use client';
+﻿'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { apiUrl } from '@/lib/api';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
@@ -43,7 +42,7 @@ export default function AdminPage() {
 
   const fetchActivities = useCallback(async () => {
     try {
-      const res = await fetch(apiUrl('/api/admin/activities'));
+      const res = await fetch('/api/admin/activities');
       const json = await res.json();
       if (json.success) setActivities(json.data);
     } catch (e) { console.error(e); }
@@ -51,7 +50,7 @@ export default function AdminPage() {
 
   const fetchAutomationStatus = useCallback(async () => {
     try {
-      const res = await fetch(apiUrl('/api/admin/automation'));
+      const res = await fetch('/api/admin/automation');
       const json = await res.json();
       if (json.success) setAutomationStatus(json.data);
     } catch (e) { console.error(e); }
@@ -60,7 +59,7 @@ export default function AdminPage() {
   const fetchLogs = useCallback(async () => {
     try {
       const headers = await getAuthHeaders();
-      const res = await fetch(apiUrl('/api/admin/logs'), { headers });
+      const res = await fetch('/api/admin/logs', { headers });
       const json = await res.json();
       if (json.success) setLogs(json.data);
     } catch (e) { console.error(e); }
@@ -73,9 +72,9 @@ export default function AdminPage() {
         try {
           const headers = await getAuthHeaders();
           const [resAct, resAuto, resLogs] = await Promise.all([
-            fetch(apiUrl('/api/admin/activities')),
-            fetch(apiUrl('/api/admin/automation')),
-            fetch(apiUrl('/api/admin/logs'), { headers }),
+            fetch('/api/admin/activities'),
+            fetch('/api/admin/automation'),
+            fetch('/api/admin/logs', { headers }),
           ]);
           const [jsonAct, jsonAuto, jsonLogs] = await Promise.all([
             resAct.json(),
@@ -103,7 +102,7 @@ export default function AdminPage() {
     try {
       const headers = await getAuthHeaders();
       headers['Content-Type'] = 'application/json';
-      const res = await fetch(apiUrl('/api/admin/activities'), {
+      const res = await fetch('/api/admin/activities', {
         method: 'POST',
         headers,
         body: JSON.stringify({ title: newTitle, date: newDate, category: newCategory }),
@@ -128,7 +127,7 @@ export default function AdminPage() {
     showToast({ type: 'info', message: 'Menjalankan...', description: 'Memeriksa struktur folder Google Drive.' });
     try {
       const headers = await getAuthHeaders();
-      const res = await fetch(apiUrl('/api/admin/automation'), { method: 'POST', headers });
+      const res = await fetch('/api/admin/automation', { method: 'POST', headers });
       const json = await res.json();
       if (json.success) {
         showToast({ type: 'success', message: 'Selesai.', description: json.message || 'Folder disinkronkan.' });
@@ -395,3 +394,4 @@ export default function AdminPage() {
     </div>
   );
 }
+

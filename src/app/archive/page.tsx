@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -9,7 +9,6 @@ import {
   Search,
 } from 'lucide-react';
 import { ArchiveCategory, FileItem, SabbathInfo } from '@/lib/types';
-import { apiUrl } from '@/lib/api';
 import MediaViewer from '@/components/MediaViewer';
 
 function ArchiveContent() {
@@ -33,7 +32,7 @@ function ArchiveContent() {
   useEffect(() => {
     let isMounted = true;
     const sabbath = selectedSabbath;
-    const url = apiUrl(`/api/archive/tree?year=${year}&quarter=${quarter}&category=${category}${sabbath ? `&sabbath=${sabbath}` : ''}`);
+    const url = `/api/archive/tree?year=${year}&quarter=${quarter}&category=${category}${sabbath ? `&sabbath=${sabbath}` : ''}`;
 
     fetch(url)
       .then((res) => res.json())
@@ -283,3 +282,4 @@ export default function ArchivePage() {
     </Suspense>
   );
 }
+

@@ -21,14 +21,20 @@ export const isFirebaseConfigured = (): boolean => {
 
 try {
   if (isFirebaseConfigured()) {
+    if (typeof window !== 'undefined') {
+      console.log('[Firebase] Initialization Diagnostic:');
+      console.log('  projectId:', firebaseConfig.projectId);
+      console.log('  authDomain:', firebaseConfig.authDomain);
+      console.log('  hostname:', window.location.hostname);
+    }
     app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
     auth = getAuth(app);
     db = getFirestore(app);
   } else {
     if (typeof window !== 'undefined') {
       console.warn(
-        '[Firebase] Client-side Firebase credentials are not yet configured in environment variables. ' +
-        'Please configure NEXT_PUBLIC_FIREBASE_* variables in Vercel / .env.local.'
+        '[Firebase] INVALID CONFIGURATION: Client-side Firebase credentials are not yet configured properly. ' +
+        'Please ensure NEXT_PUBLIC_FIREBASE_* variables are set.'
       );
     }
   }

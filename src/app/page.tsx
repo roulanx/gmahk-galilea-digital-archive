@@ -1,8 +1,7 @@
-'use client';
+﻿'use client';
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { apiUrl } from '@/lib/api';
 import {
   ArrowRight,
   Image as ImageIcon,
@@ -21,8 +20,8 @@ export default function Home() {
     let isMounted = true;
 
     Promise.all([
-      fetch(apiUrl('/api/sabbath')).then((res) => res.json()),
-      fetch(apiUrl('/api/archive/random?count=6')).then((res) => res.json())
+      fetch('/api/sabbath').then((res) => res.json()),
+      fetch('/api/archive/random?count=6').then((res) => res.json())
     ]).then(([sabbathData, randomData]) => {
       if (isMounted) {
         if (sabbathData.success) {
@@ -282,3 +281,4 @@ export default function Home() {
     </div>
   );
 }
+

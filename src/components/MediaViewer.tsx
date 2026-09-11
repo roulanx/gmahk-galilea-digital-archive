@@ -1,8 +1,7 @@
-'use client';
+﻿'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { FileItem } from '@/lib/types';
-import { apiUrl } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import {
@@ -107,7 +106,7 @@ export default function MediaViewer({
     try {
       setIsDeleting(true);
       const idToken = await getIdToken();
-      const res = await fetch(apiUrl('/api/admin/trash'), {
+      const res = await fetch('/api/admin/trash', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -375,3 +374,4 @@ export default function MediaViewer({
     </div>
   );
 }
+

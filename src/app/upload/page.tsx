@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useEffect, useState, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -11,7 +11,6 @@ import {
 import { ArchiveCategory, SabbathInfo } from '@/lib/types';
 import { useToast } from '@/context/ToastContext';
 import { useAuth } from '@/context/AuthContext';
-import { apiUrl } from '@/lib/api';
 
 function UploadContent() {
   const searchParams = useSearchParams();
@@ -35,7 +34,7 @@ function UploadContent() {
 
   useEffect(() => {
     let isMounted = true;
-    fetch(apiUrl('/api/sabbath'))
+    fetch('/api/sabbath')
       .then((res) => res.json())
       .then((json) => {
         if (!isMounted || !json.success) return;
@@ -78,7 +77,7 @@ function UploadContent() {
 
     try {
       const token = await getIdToken();
-      const res = await fetch(apiUrl('/api/upload'), { 
+      const res = await fetch('/api/upload', { 
         method: 'POST', 
         headers: token ? { 'Authorization': `Bearer ${token}` } : undefined,
         body: formData 
@@ -300,3 +299,4 @@ export default function UploadPage() {
     </Suspense>
   );
 }
+
