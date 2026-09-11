@@ -50,6 +50,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isConfigured = isFirebaseConfigured();
 
   useEffect(() => {
+    console.info('[GALILEA AUTH BUILD]', {
+      version: 'AUTH-DEBUG-2026-09-11-01',
+      commit: '15a94ce914f9a631ebdc66e269357a3fab478c63'
+    });
+    
     if (!auth) return;
 
     let isMounted = true;
@@ -125,10 +130,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         message: 'Selamat Datang',
         description: 'Anda berhasil masuk ke sistem dokumentasi GMAHK Galilea.',
       });
-    } catch (error: unknown) {
-      console.error('[Auth] Google Sign-In Error:', error);
-      const err = error as { code?: string; message?: string };
-      const code = err?.code || '';
+    } catch (error: any) {
+      const code = error?.code || 'unknown-error';
+      const message = error?.message || 'Terjadi kesalahan internal.';
+      
+      console.error('[GALILEA AUTH ERROR]', {
+        code: code,
+        message: message,
+        name: error?.name
+      });
 
       if (code === 'auth/popup-closed-by-user') {
         showToast({
@@ -137,43 +147,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           description: 'Jendela masuk Google ditutup sebelum proses selesai.',
         });
       } else if (code === 'auth/cancelled-popup-request') {
-        // Ignore silently: a newer popup or request took precedence
-        console.log('[Auth] Popup request cancelled.');
+        // SILENT
       } else if (code === 'auth/popup-blocked') {
         showToast({
           type: 'warning',
-          message: 'Jendela Popup Diblokir',
+          message: 'Popup Diblokir Browser',
           description: 'Browser Anda memblokir popup Google Sign-In. Mohon izinkan popup di browser lalu coba lagi.',
         });
       } else if (code === 'auth/operation-not-allowed') {
         showToast({
           type: 'error',
           message: 'Provider Google Belum Aktif',
-          description: 'Metode login Google belum diaktifkan di Firebase Console (Authentication > Sign-in method).',
+          description: 'Metode login Google belum diaktifkan di Firebase Console.',
         });
       } else if (code === 'auth/unauthorized-domain') {
         showToast({
           type: 'error',
           message: 'Domain Belum Diizinkan',
-          description: 'Domain "drive-galilea.vercel.app" belum didaftarkan di Firebase Console (Authentication > Settings > Authorized domains).',
+          description: 'Domain belum didaftarkan di Firebase Console (Authentication > Settings > Authorized domains).',
         });
       } else if (code === 'auth/invalid-api-key') {
         showToast({
           type: 'error',
           message: 'Kunci API Firebase Tidak Valid',
-          description: 'Kunci API Firebase tidak sesuai atau belum diaktifkan. Periksa pengaturan Project di Firebase Console.',
+          description: 'Kunci API Firebase tidak sesuai atau belum diaktifkan.',
         });
       } else if (code === 'auth/network-request-failed') {
         showToast({
           type: 'error',
           message: 'Koneksi Terputus',
-          description: 'Gagal terhubung ke server Firebase. Periksa koneksi internet Anda lalu coba lagi.',
+          description: 'Gagal terhubung ke server Firebase. Periksa koneksi internet Anda.',
         });
       } else {
         showToast({
           type: 'error',
           message: 'Login Belum Berhasil',
-          description: `${err?.message || 'Silakan coba beberapa saat lagi atau hubungi administrator.'}${code ? ` (${code})` : ''}`,
+          description: `Kode: ${code}\nPesan: ${message}`,
         });
       }
     } finally {
