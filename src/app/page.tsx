@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -49,7 +49,10 @@ export default function Home() {
       <section className="relative min-h-[90vh] w-full flex items-center justify-center overflow-hidden pt-20 px-6 sm:px-12">
         {/* Background Atmosphere */}
         <div className="absolute inset-0 bg-gradient-to-b from-black via-[#0a0a0a] to-black z-0" />
-        <div className="absolute inset-0 bg-[url('/noise.png')] opacity-[0.03] mix-blend-overlay z-0 pointer-events-none" />
+        <div 
+          className="absolute inset-0 opacity-[0.03] mix-blend-overlay z-0 pointer-events-none" 
+          style={{ backgroundImage: "url('/noise.png')" }}
+        />
 
         {/* Central Subject - JESUS */}
         <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
