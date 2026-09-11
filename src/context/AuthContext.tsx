@@ -52,7 +52,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     console.info('[GALILEA AUTH BUILD]', {
       version: 'AUTH-DEBUG-2026-09-11-01',
-      commit: '15a94ce914f9a631ebdc66e269357a3fab478c63'
+      commit: 'b593e45b97230e7bc74e824e6aaab1f9c33e345b'
     });
     
     if (!auth) return;
