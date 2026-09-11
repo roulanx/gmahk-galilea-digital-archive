@@ -15,7 +15,7 @@ import {
 
 export default function Navbar() {
   const pathname = usePathname();
-  const { user, role, loading, roleLoading, signInWithGoogle, signOut } = useAuth();
+  const { user, role, loading, roleLoading, isSigningIn, signInWithGoogle, signOut } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
 
@@ -127,10 +127,22 @@ export default function Navbar() {
               </div>
             ) : (
               <button
-                onClick={signInWithGoogle}
-                className="text-xs font-mono tracking-widest uppercase text-white/80 hover:text-white px-5 py-2 rounded-full border border-white/20 hover:border-white/50 transition-all cursor-pointer"
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  signInWithGoogle();
+                }}
+                disabled={isSigningIn}
+                className="text-xs font-mono tracking-widest uppercase text-white/90 hover:text-white px-5 py-2 rounded-full border border-white/20 hover:border-white/50 bg-white/[0.03] hover:bg-white/[0.08] transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                Masuk
+                {isSigningIn ? (
+                  <>
+                    <div className="w-3 h-3 rounded-full border border-white/30 border-t-white animate-spin" />
+                    <span>MEMPROSES...</span>
+                  </>
+                ) : (
+                  <span>MASUK</span>
+                )}
               </button>
             )}
           </div>
@@ -202,13 +214,23 @@ export default function Navbar() {
               </div>
             ) : (
               <button
-                onClick={() => {
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
                   setMobileMenuOpen(false);
                   signInWithGoogle();
                 }}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-full bg-white text-black hover:bg-white/90 text-xs font-mono tracking-widest uppercase transition-colors cursor-pointer"
+                disabled={isSigningIn}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-full bg-white text-black hover:bg-white/90 text-xs font-mono tracking-widest uppercase transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Masuk
+                {isSigningIn ? (
+                  <>
+                    <div className="w-3 h-3 rounded-full border border-black/30 border-t-black animate-spin" />
+                    <span>MEMPROSES...</span>
+                  </>
+                ) : (
+                  <span>MASUK</span>
+                )}
               </button>
             )}
           </div>

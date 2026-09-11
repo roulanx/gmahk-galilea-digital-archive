@@ -39,6 +39,8 @@ function determineFileType(mimeType: string, filename: string): FileFormatType {
   return 'other';
 }
 
+
+
 export async function POST(req: NextRequest) {
   try {
     const session = await authenticateRequest(req);

@@ -1,0 +1,11 @@
+{
+  "hosting": {
+    "site": "drive-galilea",
+    "public": "out",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ]
+  }
+}

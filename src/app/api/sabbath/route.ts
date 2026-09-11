@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getCurrentQuarterInfo, getNextSabbath, getPreviousSabbath, getDefaultUploadSabbath } from '@/lib/sabbath';
 
+
+
 export async function GET() {
   try {
     const nextSabbath = getNextSabbath();

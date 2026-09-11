@@ -9,6 +9,7 @@ import {
   Search,
 } from 'lucide-react';
 import { ArchiveCategory, FileItem, SabbathInfo } from '@/lib/types';
+import { apiUrl } from '@/lib/api';
 import MediaViewer from '@/components/MediaViewer';
 
 function ArchiveContent() {
@@ -31,9 +32,8 @@ function ArchiveContent() {
 
   useEffect(() => {
     let isMounted = true;
-    const url = `/api/archive/tree?year=${year}&quarter=${quarter}&category=${category}${
-      selectedSabbath ? `&sabbath=${selectedSabbath}` : ''
-    }`;
+    const sabbath = selectedSabbath;
+    const url = apiUrl(`/api/archive/tree?year=${year}&quarter=${quarter}&category=${category}${sabbath ? `&sabbath=${sabbath}` : ''}`);
 
     fetch(url)
       .then((res) => res.json())

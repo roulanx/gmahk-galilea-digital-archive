@@ -10,6 +10,8 @@ import {
 } from 'lucide-react';
 import { ArchiveCategory, SabbathInfo } from '@/lib/types';
 import { useToast } from '@/context/ToastContext';
+import { useAuth } from '@/context/AuthContext';
+import { apiUrl } from '@/lib/api';
 
 function UploadContent() {
   const searchParams = useSearchParams();
@@ -17,6 +19,7 @@ function UploadContent() {
   const queryCategory = searchParams.get('category') as ArchiveCategory | null;
 
   const { showToast } = useToast();
+  const { getIdToken } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [category, setCategory] = useState<ArchiveCategory>(queryCategory || 'documentation');
@@ -32,7 +35,7 @@ function UploadContent() {
 
   useEffect(() => {
     let isMounted = true;
-    fetch('/api/sabbath')
+    fetch(apiUrl('/api/sabbath'))
       .then((res) => res.json())
       .then((json) => {
         if (!isMounted || !json.success) return;
@@ -74,7 +77,12 @@ function UploadContent() {
     selectedFiles.forEach((file) => formData.append('files', file));
 
     try {
-      const res = await fetch('/api/upload', { method: 'POST', body: formData });
+      const token = await getIdToken();
+      const res = await fetch(apiUrl('/api/upload'), { 
+        method: 'POST', 
+        headers: token ? { 'Authorization': `Bearer ${token}` } : undefined,
+        body: formData 
+      });
       const json = await res.json();
       if (json.success) {
         setUploadSuccess(true);

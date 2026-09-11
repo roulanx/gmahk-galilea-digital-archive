@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth-server';
 import { getSystemLogs } from '@/lib/firestore';
 
+
+
 export async function GET(req: NextRequest) {
   try {
     const { authorized } = await requireAdmin(req);

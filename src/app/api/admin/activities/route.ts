@@ -5,6 +5,8 @@ import { createActivityFolderInDrive } from '@/lib/drive';
 import { getQuarterFromMonth } from '@/lib/sabbath';
 import { ActivityItem, ArchiveCategory } from '@/lib/types';
 
+
+
 export async function GET() {
   try {
     const activities = await getActivities();

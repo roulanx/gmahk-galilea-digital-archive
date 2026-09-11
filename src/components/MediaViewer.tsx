@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { FileItem } from '@/lib/types';
+import { apiUrl } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import {
@@ -38,7 +39,7 @@ export default function MediaViewer({
   onPrev,
   onFileDeleted,
 }: MediaViewerProps) {
-  const { role } = useAuth();
+  const { role, getIdToken } = useAuth();
   const { showToast } = useToast();
   const [internalIndex, setInternalIndex] = useState(initialIndex);
   const [prevInitial, setPrevInitial] = useState(initialIndex);
@@ -105,10 +106,12 @@ export default function MediaViewer({
     setShowDeleteConfirm(false);
     try {
       setIsDeleting(true);
-      const res = await fetch('/api/admin/trash', {
+      const idToken = await getIdToken();
+      const res = await fetch(apiUrl('/api/admin/trash'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`,
           'x-dev-role': role,
         },
         body: JSON.stringify({

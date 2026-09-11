@@ -3,6 +3,8 @@ import { getSabbathsInQuarter, getQuarterTitle } from '@/lib/sabbath';
 import { getFilesBySabbath } from '@/lib/firestore';
 import { ArchiveCategory, FileItem } from '@/lib/types';
 
+
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);

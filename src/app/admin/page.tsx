@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
+import { apiUrl } from '@/lib/api';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
@@ -13,7 +14,7 @@ import { ActivityItem, AutomationStatus, SystemLog } from '@/lib/types';
 type AdminTab = 'dashboard' | 'activities' | 'automation' | 'logs' | 'settings';
 
 export default function AdminPage() {
-  const { role, user, loading, roleLoading, signInWithGoogle, signOut, getIdToken } = useAuth();
+  const { role, user, loading, roleLoading, isSigningIn, signInWithGoogle, signOut, getIdToken } = useAuth();
   const { showToast } = useToast();
 
   const [activeTab, setActiveTab] = useState<AdminTab>('dashboard');
@@ -42,7 +43,7 @@ export default function AdminPage() {
 
   const fetchActivities = useCallback(async () => {
     try {
-      const res = await fetch('/api/admin/activities');
+      const res = await fetch(apiUrl('/api/admin/activities'));
       const json = await res.json();
       if (json.success) setActivities(json.data);
     } catch (e) { console.error(e); }
@@ -50,7 +51,7 @@ export default function AdminPage() {
 
   const fetchAutomationStatus = useCallback(async () => {
     try {
-      const res = await fetch('/api/admin/automation');
+      const res = await fetch(apiUrl('/api/admin/automation'));
       const json = await res.json();
       if (json.success) setAutomationStatus(json.data);
     } catch (e) { console.error(e); }
@@ -59,7 +60,7 @@ export default function AdminPage() {
   const fetchLogs = useCallback(async () => {
     try {
       const headers = await getAuthHeaders();
-      const res = await fetch('/api/admin/logs', { headers });
+      const res = await fetch(apiUrl('/api/admin/logs'), { headers });
       const json = await res.json();
       if (json.success) setLogs(json.data);
     } catch (e) { console.error(e); }
@@ -72,9 +73,9 @@ export default function AdminPage() {
         try {
           const headers = await getAuthHeaders();
           const [resAct, resAuto, resLogs] = await Promise.all([
-            fetch('/api/admin/activities'),
-            fetch('/api/admin/automation'),
-            fetch('/api/admin/logs', { headers }),
+            fetch(apiUrl('/api/admin/activities')),
+            fetch(apiUrl('/api/admin/automation')),
+            fetch(apiUrl('/api/admin/logs'), { headers }),
           ]);
           const [jsonAct, jsonAuto, jsonLogs] = await Promise.all([
             resAct.json(),
@@ -102,7 +103,7 @@ export default function AdminPage() {
     try {
       const headers = await getAuthHeaders();
       headers['Content-Type'] = 'application/json';
-      const res = await fetch('/api/admin/activities', {
+      const res = await fetch(apiUrl('/api/admin/activities'), {
         method: 'POST',
         headers,
         body: JSON.stringify({ title: newTitle, date: newDate, category: newCategory }),
@@ -127,7 +128,7 @@ export default function AdminPage() {
     showToast({ type: 'info', message: 'Menjalankan...', description: 'Memeriksa struktur folder Google Drive.' });
     try {
       const headers = await getAuthHeaders();
-      const res = await fetch('/api/admin/automation', { method: 'POST', headers });
+      const res = await fetch(apiUrl('/api/admin/automation'), { method: 'POST', headers });
       const json = await res.json();
       if (json.success) {
         showToast({ type: 'success', message: 'Selesai.', description: json.message || 'Folder disinkronkan.' });
@@ -160,8 +161,16 @@ export default function AdminPage() {
         <p className="editorial-desc mb-10 max-w-md">
           Halaman ini khusus untuk pengelolaan arsip dan sistem GMAHK Galilea. Masuk dengan akun Google Anda untuk melanjutkan.
         </p>
-        <button onClick={signInWithGoogle} className="editorial-button">
-          MASUK DENGAN GOOGLE
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            signInWithGoogle();
+          }}
+          disabled={isSigningIn}
+          className="editorial-button disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isSigningIn ? 'MEMPROSES...' : 'MASUK DENGAN GOOGLE'}
         </button>
       </div>
     );

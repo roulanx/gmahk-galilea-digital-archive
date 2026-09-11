@@ -47,7 +47,19 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       const id = `${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
       const newToast: ToastItem = { id, type, message, description, duration };
 
-      setToasts((prev) => [...prev, newToast]);
+      setToasts((prev) => {
+        // Prevent duplicate toasts if identical message & description is already visible
+        const isDuplicate = prev.some(
+          (t) => t.message === message && t.description === description
+        );
+        if (isDuplicate) {
+          return prev;
+        }
+
+        // Cap to at most 3 active toasts
+        const next = [...prev, newToast];
+        return next.slice(-3);
+      });
 
       if (duration > 0) {
         setTimeout(() => {

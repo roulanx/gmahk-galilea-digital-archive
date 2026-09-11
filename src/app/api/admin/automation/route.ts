@@ -3,6 +3,8 @@ import { requireAdmin } from '@/lib/auth-server';
 import { runArchiveAutomation } from '@/lib/automation';
 import { getAutomationStatus } from '@/lib/firestore';
 
+
+
 export async function GET() {
   try {
     const status = await getAutomationStatus();

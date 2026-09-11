@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { User, signInWithPopup, signOut as fbSignOut, onAuthStateChanged } from 'firebase/auth';
 import { auth, googleProvider, isFirebaseConfigured, db } from '@/lib/firebase-client';
 import { UserRole } from '@/lib/types';
@@ -12,6 +12,7 @@ interface AuthContextType {
   isSuperAdmin: boolean;
   loading: boolean;
   roleLoading: boolean;
+  isSigningIn: boolean;
   isConfigured: boolean;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -24,6 +25,7 @@ const AuthContext = createContext<AuthContextType>({
   isSuperAdmin: false,
   loading: true,
   roleLoading: false,
+  isSigningIn: false,
   isConfigured: false,
   signInWithGoogle: async () => {},
   signOut: async () => {},
@@ -41,6 +43,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [role, setRole] = useState<UserRole>('viewer');
   const [loading, setLoading] = useState<boolean>(() => isFirebaseConfigured());
   const [roleLoading, setRoleLoading] = useState(false);
+  const [isSigningIn, setIsSigningIn] = useState(false);
+  const isSigningInRef = useRef(false);
   const { showToast } = useToast();
 
   const isConfigured = isFirebaseConfigured();
@@ -96,6 +100,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signInWithGoogle = async () => {
+    if (isSigningInRef.current) {
+      console.log('[Auth] Google Sign-In already in progress. Ignoring duplicate click.');
+      return;
+    }
+
     if (!auth || !isFirebaseConfigured()) {
       console.warn('[Auth] Google Sign-In triggered but Firebase client credentials are not configured in environment variables.');
       showToast({
@@ -106,8 +115,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    isSigningInRef.current = true;
+    setIsSigningIn(true);
+
     try {
-      setLoading(true);
       await signInWithPopup(auth, googleProvider);
       showToast({
         type: 'success',
@@ -115,37 +126,59 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         description: 'Anda berhasil masuk ke sistem dokumentasi GMAHK Galilea.',
       });
     } catch (error: unknown) {
-      console.error('Google Sign-In Error:', error);
+      console.error('[Auth] Google Sign-In Error:', error);
       const err = error as { code?: string; message?: string };
       const code = err?.code || '';
 
-      if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+      if (code === 'auth/popup-closed-by-user') {
         showToast({
           type: 'info',
           message: 'Login Dibatalkan',
           description: 'Jendela masuk Google ditutup sebelum proses selesai.',
         });
-      } else if (code === 'auth/network-request-failed') {
+      } else if (code === 'auth/cancelled-popup-request') {
+        // Ignore silently: a newer popup or request took precedence
+        console.log('[Auth] Popup request cancelled.');
+      } else if (code === 'auth/popup-blocked') {
+        showToast({
+          type: 'warning',
+          message: 'Jendela Popup Diblokir',
+          description: 'Browser Anda memblokir popup Google Sign-In. Mohon izinkan popup di browser lalu coba lagi.',
+        });
+      } else if (code === 'auth/operation-not-allowed') {
         showToast({
           type: 'error',
-          message: 'Koneksi Terputus',
-          description: 'Periksa koneksi internet Anda lalu coba lagi.',
+          message: 'Provider Google Belum Aktif',
+          description: 'Metode login Google belum diaktifkan di Firebase Console (Authentication > Sign-in method).',
         });
       } else if (code === 'auth/unauthorized-domain') {
         showToast({
           type: 'error',
           message: 'Domain Belum Diizinkan',
-          description: 'Domain website ini belum didaftarkan di Firebase Authorized Domains.',
+          description: 'Domain "drive-galilea.vercel.app" belum didaftarkan di Firebase Console (Authentication > Settings > Authorized domains).',
+        });
+      } else if (code === 'auth/invalid-api-key') {
+        showToast({
+          type: 'error',
+          message: 'Kunci API Firebase Tidak Valid',
+          description: 'Kunci API Firebase tidak sesuai atau belum diaktifkan. Periksa pengaturan Project di Firebase Console.',
+        });
+      } else if (code === 'auth/network-request-failed') {
+        showToast({
+          type: 'error',
+          message: 'Koneksi Terputus',
+          description: 'Gagal terhubung ke server Firebase. Periksa koneksi internet Anda lalu coba lagi.',
         });
       } else {
         showToast({
           type: 'error',
           message: 'Login Belum Berhasil',
-          description: 'Silakan coba beberapa saat lagi atau hubungi administrator.',
+          description: `${err?.message || 'Silakan coba beberapa saat lagi atau hubungi administrator.'}${code ? ` (${code})` : ''}`,
         });
       }
     } finally {
-      setLoading(false);
+      isSigningInRef.current = false;
+      setIsSigningIn(false);
     }
   };
 
@@ -183,6 +216,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isSuperAdmin: role === 'admin',
         loading,
         roleLoading,
+        isSigningIn,
         isConfigured,
         signInWithGoogle,
         signOut,
