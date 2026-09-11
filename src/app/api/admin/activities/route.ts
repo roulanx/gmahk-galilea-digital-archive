@@ -7,8 +7,23 @@ import { ActivityItem, ArchiveCategory } from '@/lib/types';
 
 
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const authResult = await requireAdmin(req);
+
+    if (!authResult.authorized) {
+      if (authResult.status === 'unauthenticated') {
+        return NextResponse.json(
+          { success: false, error: 'Unauthorized: Sesi autentikasi diperlukan' },
+          { status: 401 }
+        );
+      }
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: Hanya Admin yang dapat mengakses daftar kegiatan' },
+        { status: 403 }
+      );
+    }
+
     const activities = await getActivities();
     return NextResponse.json({ success: true, data: activities });
   } catch (error) {

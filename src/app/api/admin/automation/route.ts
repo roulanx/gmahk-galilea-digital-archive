@@ -3,8 +3,33 @@ import { requireAdmin } from '@/lib/auth-server';
 import { runArchiveAutomation } from '@/lib/automation';
 import { getAutomationStatus } from '@/lib/firestore';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const authResult = await requireAdmin(req);
+
+    if (!authResult.authorized) {
+      if (authResult.status === 'unauthenticated') {
+        const unauthMsg = 'Unauthorized: Sesi autentikasi diperlukan. Silakan masuk terlebih dahulu.';
+        return NextResponse.json(
+          {
+            success: false,
+            message: unauthMsg,
+            error: unauthMsg,
+          },
+          { status: 401 }
+        );
+      }
+      const forbiddenMsg = 'Forbidden: Hanya Admin yang dapat melihat status otomasi.';
+      return NextResponse.json(
+        {
+          success: false,
+          message: forbiddenMsg,
+          error: forbiddenMsg,
+        },
+        { status: 403 }
+      );
+    }
+
     const status = await getAutomationStatus();
     return NextResponse.json({ success: true, data: status });
   } catch (error) {

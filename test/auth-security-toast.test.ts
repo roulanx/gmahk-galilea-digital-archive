@@ -52,6 +52,21 @@ describe('GMAHK Galilea - Security & Authorization Guardrails', () => {
     assert.equal(result.authorized, false);
     assert.equal(result.status, 'unauthenticated');
   });
+
+  it('harus memproteksi seluruh endpoint GET & POST /api/admin/* dari pengaksesan tanpa token', async () => {
+    const endpoints = [
+      'http://localhost:3000/api/admin/logs',
+      'http://localhost:3000/api/admin/activities',
+      'http://localhost:3000/api/admin/automation',
+    ];
+
+    for (const ep of endpoints) {
+      const req = new NextRequest(ep, { method: 'GET' });
+      const result = await requireAdmin(req);
+      assert.equal(result.authorized, false);
+      assert.equal(result.status, 'unauthenticated');
+    }
+  });
 });
 
 describe('GMAHK Galilea - Google Drive Error Classification', () => {

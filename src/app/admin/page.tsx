@@ -40,19 +40,21 @@ export default function AdminPage() {
 
   const fetchActivities = useCallback(async () => {
     try {
-      const res = await fetch('/api/admin/activities');
+      const headers = await getAuthHeaders();
+      const res = await fetch('/api/admin/activities', { headers });
       const json = await res.json();
       if (json.success) setActivities(json.data);
     } catch (e) { console.error(e); }
-  }, []);
+  }, [getAuthHeaders]);
 
   const fetchAutomationStatus = useCallback(async () => {
     try {
-      const res = await fetch('/api/admin/automation');
+      const headers = await getAuthHeaders();
+      const res = await fetch('/api/admin/automation', { headers });
       const json = await res.json();
       if (json.success) setAutomationStatus(json.data);
     } catch (e) { console.error(e); }
-  }, []);
+  }, [getAuthHeaders]);
 
   const fetchLogs = useCallback(async () => {
     try {
@@ -70,8 +72,8 @@ export default function AdminPage() {
         try {
           const headers = await getAuthHeaders();
           const [resAct, resAuto, resLogs] = await Promise.all([
-            fetch('/api/admin/activities'),
-            fetch('/api/admin/automation'),
+            fetch('/api/admin/activities', { headers }),
+            fetch('/api/admin/automation', { headers }),
             fetch('/api/admin/logs', { headers }),
           ]);
           const [jsonAct, jsonAuto, jsonLogs] = await Promise.all([
