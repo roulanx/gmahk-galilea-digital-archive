@@ -145,12 +145,12 @@ function UploadContent() {
 
       xhr.addEventListener('load', () => {
         if (xhr.status >= 200 && xhr.status < 300) {
-          let json: Record<string, unknown>;
+          let json: Record<string, unknown> = {};
           try { json = JSON.parse(xhr.responseText); } catch(e){}
           if (json && json.success) {
             setQueue(prev => prev.map(q => q.id === id ? { ...q, status: 'SUCCESS', progress: 100 } : q));
           } else {
-            setQueue(prev => prev.map(q => q.id === id ? { ...q, status: 'ERROR', error: json?.error || 'Server menolak berkas' } : q));
+            setQueue(prev => prev.map(q => q.id === id ? { ...q, status: 'ERROR', error: (json?.error as string) || 'Server menolak berkas' } : q));
           }
         } else {
           setQueue(prev => prev.map(q => q.id === id ? { ...q, status: 'ERROR', error: `Error HTTP ${xhr.status}` } : q));

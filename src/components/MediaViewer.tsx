@@ -181,7 +181,7 @@ export default function MediaViewer({
           url: shareUrl,
         });
       } catch (err: unknown) {
-        if (err.name !== 'AbortError') {
+        if ((err as Error).name !== 'AbortError') {
           copyToClipboard(shareUrl);
         }
       }

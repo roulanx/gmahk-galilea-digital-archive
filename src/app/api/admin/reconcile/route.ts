@@ -6,7 +6,7 @@ import { requireAdmin } from '@/lib/auth-server';
 export async function POST(req: NextRequest) {
   try {
     const authResult = await requireAdmin(req);
-    if (!authResult.success) {
+    if (!authResult.authorized) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
