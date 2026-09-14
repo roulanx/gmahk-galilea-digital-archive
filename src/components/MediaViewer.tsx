@@ -42,6 +42,7 @@ export default function MediaViewer({
     setInternalIndex(initialIndex);
   }
 
+  console.log('[GALILEA MEDIA VIEWER BUILD] commit=54978e9 features=download,share,delete');
   const currentFile = file ?? (files && files[internalIndex]);
   const hasFiles = Boolean(files && files.length > 0);
 
@@ -481,3 +482,4 @@ export default function MediaViewer({
     </div>
   );
 }
+
