@@ -324,16 +324,28 @@ function ArchiveContent() {
           onNext={viewerIndex < filteredFiles.length - 1 ? () => setViewerIndex(viewerIndex + 1) : undefined}
           onPrev={viewerIndex > 0 ? () => setViewerIndex(viewerIndex - 1) : undefined}
           onFileDeleted={(deletedId) => {
-            setFiles(prev => prev.filter(f => f.id !== deletedId));
-            // Background refetch executed
-              const url = `/api/archive/tree?year=${year}&quarter=${quarter}&category=${category}${selectedSabbath ? '&sabbath=' + encodeURIComponent(selectedSabbath) : ''}`;
-              fetch(url).then(res => res.json()).then(json => {
-                 if (json.success && json.data) {
-                    setFiles(json.data.files || []);
-                    lastFetchedKeyRef.current = `${year}-${quarter}-${category}-${json.data.selectedSabbath || selectedSabbath}`;
-                 }
-              }).catch(console.error);
-            
+            setFiles((prev) => prev.filter((f) => f.id !== deletedId));
+            // Background refetch with cache busting
+            const sabbathParam = selectedSabbath ? `&sabbath=${encodeURIComponent(selectedSabbath)}` : '';
+            const url = `/api/archive/tree?year=${year}&quarter=${quarter}&category=${category}${sabbathParam}&_t=${Date.now()}`;
+            fetch(url)
+              .then((res) => res.json())
+              .then((json) => {
+                if (json.success && json.data) {
+                  setFiles(json.data.files || []);
+                  if (json.data.sabbaths) {
+                    setSabbaths(json.data.sabbaths);
+                  }
+                  if (json.data.availableYears?.length) {
+                    setAvailableYears(json.data.availableYears);
+                  }
+                  if (json.data.quarters?.length) {
+                    setQuarters(json.data.quarters);
+                  }
+                  lastFetchedKeyRef.current = `${year}-${quarter}-${category}-${json.data.selectedSabbath || selectedSabbath}`;
+                }
+              })
+              .catch(console.error);
           }}
         />
       )}

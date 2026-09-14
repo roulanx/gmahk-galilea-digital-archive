@@ -1,10 +1,13 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useSyncExternalStore } from 'react';
+import { createPortal } from 'react-dom';
 import { X, ChevronLeft, ChevronRight, ExternalLink, Trash2, FileText, FileSpreadsheet, Presentation, Video, AlertTriangle, Download, Share2 } from 'lucide-react';
 import { FileItem } from '@/lib/types';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
+
+const emptySubscribe = () => () => {};
 
 interface MediaViewerProps {
   file?: FileItem;
@@ -36,15 +39,22 @@ export default function MediaViewer({
   const [downloadProgress, setDownloadProgress] = useState<number | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+  // Client-side hydration check for safe createPortal to document.body
+  const isClient = useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false
+  );
+
+  useEffect(() => {
+    console.info('[GALILEA MEDIA VIEWER 4E861B] MediaViewer mounted in React Portal');
+  }, []);
+
   // Sync index during render if initialIndex changed
   if (initialIndex !== prevInitial) {
     setPrevInitial(initialIndex);
     setInternalIndex(initialIndex);
   }
-
-  useEffect(() => {
-    console.info('[GALILEA MEDIA VIEWER 4E861B] MediaViewer loaded');
-  }, []);
 
   const currentFile = file ?? (files && files[internalIndex]);
   const hasFiles = Boolean(files && files.length > 0);
@@ -80,7 +90,7 @@ export default function MediaViewer({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose, canGoNext, canGoPrev, handleNext, handlePrev]);
 
-  if (!isOpen || !currentFile) return null;
+  if (!isOpen || !currentFile || !isClient || typeof document === 'undefined') return null;
 
   const handleDownload = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -319,28 +329,25 @@ export default function MediaViewer({
     }
   };
 
-  // ─── LAYER 1: Backdrop (click-to-close, no backdrop-filter on root) ──────────
-  // ─── LAYER 2: Content area (image/video/pdf) ─────────────────────────────────
-  // ─── LAYER 3: Action bar (separate fixed layer, ABOVE everything) ─────────────
-  //
-  // Root cause fix: backdrop-filter on the root div creates a compositing context
-  // that causes absolute-positioned children to render BELOW sibling divs that
-  // appear later in DOM order. Fix: separate the action bar into its own
-  // independent fixed layer at a higher z-index.
-
-  return (
-    <>
-      {/* LAYER 1: Background / backdrop — click-to-close */}
+  // Render directly to document.body using ReactDOM.createPortal()
+  // This isolates MediaViewer completely from any ancestor stacking context,
+  // transform, backdrop-filter, or layout context in ArchivePage or layout.
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[9999]"
+      data-testid="media-viewer-portal"
+    >
+      {/* TASK 4: BACKDROP (z-[9999]) */}
       <div
-        className="fixed inset-0 z-[200] bg-black/90 backdrop-blur-xl"
+        className="fixed inset-0 z-[9999] bg-black/90 backdrop-blur-xl"
         onClick={onClose}
         aria-modal="true"
         role="dialog"
       />
 
-      {/* LAYER 2: Content area (above backdrop, stops click propagation) */}
+      {/* TASK 5: CONTENT (z-[10000]) */}
       <div
-        className="fixed inset-0 z-[210] flex items-center justify-center p-8 pb-32 pointer-events-none"
+        className="fixed inset-0 z-[10000] flex items-center justify-center p-8 pb-32 pointer-events-none"
       >
         <div
           className="pointer-events-auto"
@@ -349,11 +356,11 @@ export default function MediaViewer({
           {renderContent()}
         </div>
 
-        {/* Previous / Next navigation arrows */}
+        {/* Previous / Next navigation buttons */}
         {canGoPrev && (
           <button
             onClick={(e) => { e.stopPropagation(); handlePrev(); }}
-            className="fixed left-8 top-1/2 -translate-y-1/2 p-4 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors shadow-lg cursor-pointer z-[220]"
+            className="fixed left-8 top-1/2 -translate-y-1/2 p-4 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors shadow-lg cursor-pointer pointer-events-auto z-[10005]"
             aria-label="Sebelumnya"
           >
             <ChevronLeft className="w-6 h-6" />
@@ -363,7 +370,7 @@ export default function MediaViewer({
         {canGoNext && (
           <button
             onClick={(e) => { e.stopPropagation(); handleNext(); }}
-            className="fixed right-8 top-1/2 -translate-y-1/2 p-4 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors shadow-lg cursor-pointer z-[220]"
+            className="fixed right-8 top-1/2 -translate-y-1/2 p-4 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors shadow-lg cursor-pointer pointer-events-auto z-[10005]"
             aria-label="Selanjutnya"
           >
             <ChevronRight className="w-6 h-6" />
@@ -371,17 +378,17 @@ export default function MediaViewer({
         )}
       </div>
 
-      {/* LAYER 3: Action bar — topmost fixed layer, completely independent stacking context */}
+      {/* TASK 6: ACTION BAR (z-[10010]) */}
       <div
-        className="fixed inset-x-0 top-0 z-[230] p-4 sm:p-6 flex items-start justify-between text-white pointer-events-none"
+        className="fixed top-0 left-0 right-0 z-[10010] p-4 sm:p-6 flex items-start justify-between text-white pointer-events-none"
         data-testid="media-action-bar"
       >
-        {/* Left spacer */}
+        {/* Left spacer / marker */}
         <div className="max-w-2xl">
           <div className="hidden" data-testid="marker-galilea">[GALILEA MEDIA VIEWER 4E861B]</div>
         </div>
 
-        {/* Right: action buttons */}
+        {/* Right action bar buttons (pointer-events-auto) */}
         <div className="flex flex-wrap items-center gap-2 sm:gap-3 ml-auto pointer-events-auto">
 
           <button
@@ -408,7 +415,7 @@ export default function MediaViewer({
             title="Bagikan"
           >
             <Share2 className="w-4 h-4" />
-            <span className="text-sm">BAGIKAN</span>
+            <span className="text-sm font-semibold">BAGIKAN</span>
           </button>
 
           {currentFile.webViewLink && (
@@ -450,8 +457,8 @@ export default function MediaViewer({
         </div>
       </div>
 
-      {/* LAYER 4: Bottom info bar */}
-      <div className="fixed inset-x-0 bottom-0 z-[220] p-6 flex flex-col items-center justify-center pointer-events-none">
+      {/* TASK 7: BOTTOM INFO BAR (z-[10000]) */}
+      <div className="fixed bottom-0 left-0 right-0 z-[10000] p-6 flex flex-col items-center justify-center pointer-events-none">
         <div
           className="bg-black/60 backdrop-blur-md px-8 py-5 rounded-2xl flex flex-col items-center max-w-3xl w-full text-center border border-white/10 shadow-2xl pointer-events-auto"
           onClick={(e) => e.stopPropagation()}
@@ -473,10 +480,10 @@ export default function MediaViewer({
         </div>
       </div>
 
-      {/* Delete Confirmation Modal */}
+      {/* TASK 8: DELETE CONFIRMATION MODAL (z-[10020]) */}
       {showDeleteConfirm && (
         <div
-          className="fixed inset-0 z-[250] flex items-center justify-center bg-black/70 backdrop-blur-md"
+          className="fixed inset-0 z-[10020] flex items-center justify-center bg-black/70 backdrop-blur-md"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="bg-black border border-white/10 rounded-3xl p-8 max-w-sm w-full mx-4 shadow-2xl flex flex-col items-center text-center">
@@ -504,6 +511,7 @@ export default function MediaViewer({
           </div>
         </div>
       )}
-    </>
+    </div>,
+    document.body
   );
 }
