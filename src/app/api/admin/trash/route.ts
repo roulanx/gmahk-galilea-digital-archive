@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth-server';
-import { moveToTrash, isFileInManagedArchive } from '@/lib/drive';
+import { moveToTrash, isFileInManagedArchive, clearDriveCache } from '@/lib/drive';
 import { logSystemEvent } from '@/lib/firestore';
-
-
 
 export async function POST(req: NextRequest) {
   try {
@@ -31,9 +29,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'File ID is required' }, { status: 400 });
     }
 
+    const isManaged = await isFileInManagedArchive(fileId);
+    if (!isManaged) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: Berkas berada di luar batas arsip yang dikelola' },
+        { status: 403 }
+      );
+    }
+
     const success = await moveToTrash(fileId);
 
     if (success) {
+      clearDriveCache();
+
       await logSystemEvent({
         type: 'DELETE',
         message: `Berkas ${fileName || fileId} dipindahkan ke Sampah Google Drive oleh ${session?.email}`,

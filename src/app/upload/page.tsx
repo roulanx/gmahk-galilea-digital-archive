@@ -12,7 +12,6 @@ import {
   RefreshCw,
   Image as ImageIcon,
   Video,
-  Play
 } from 'lucide-react';
 import { ArchiveCategory, SabbathInfo } from '@/lib/types';
 import { useToast } from '@/context/ToastContext';
@@ -149,7 +148,7 @@ function UploadContent() {
       xhr.addEventListener('load', () => {
         if (xhr.status >= 200 && xhr.status < 300) {
           let json: Record<string, unknown> = {};
-          try { json = JSON.parse(xhr.responseText); } catch(e){}
+          try { json = JSON.parse(xhr.responseText); } catch {}
           if (json && json.success) {
             setQueue(prev => prev.map(q => q.id === id ? { ...q, status: 'SUCCESS', progress: 100 } : q));
           } else {
@@ -322,7 +321,7 @@ function UploadContent() {
             >
               <div>
                 <div className="text-sm font-medium text-white">
-                  {sabbathList.find(s => s.date === selectedSabbathDate)?.formattedTitle || 'Sabat Kustom'}
+                  {sabbathList.find(s => s.date === selectedSabbathDate)?.formattedTitle || defaultSabbath?.formattedTitle || 'Sabat Kustom'}
                 </div>
                 <div className="text-xs text-white/40 mt-1">{selectedSabbathDate}</div>
               </div>
@@ -342,7 +341,11 @@ function UploadContent() {
                     }`}
                   >
                     <span>{sab.formattedTitle}</span>
-                    {sab.isToday && <span className="text-[10px] uppercase bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">Sabat Ini</span>}
+                    {sab.isToday ? (
+                      <span className="text-[10px] uppercase bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">Sabat Ini</span>
+                    ) : sab.date === defaultSabbath?.date ? (
+                      <span className="text-[10px] uppercase bg-white/10 text-white/60 px-2 py-0.5 rounded-full">Default</span>
+                    ) : null}
                   </button>
                 ))}
               </div>

@@ -7,6 +7,7 @@ import {
   getNonCollidingFileName,
   classifyDriveError,
   determineFileType,
+  clearDriveCache,
 } from '@/lib/drive';
 import { indexFile, logSystemEvent } from '@/lib/firestore';
 import { ArchiveCategory, FileItem } from '@/lib/types';
@@ -124,6 +125,8 @@ export async function POST(req: NextRequest) {
         folderPath: destination.folderPath,
       },
     });
+
+    clearDriveCache();
 
     return NextResponse.json({
       success: true,

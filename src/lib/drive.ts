@@ -13,6 +13,55 @@ import {
 } from './sabbath';
 
 
+interface CacheEntry<T> {
+  value: T;
+  expiresAt: number;
+}
+
+class DriveMemoryCache {
+  private store = new Map<string, CacheEntry<unknown>>();
+  private readonly maxEntries = 500;
+
+  get<T>(key: string): T | null {
+    const entry = this.store.get(key);
+    if (!entry) return null;
+    if (Date.now() > entry.expiresAt) {
+      this.store.delete(key);
+      return null;
+    }
+    return entry.value as T;
+  }
+
+  set<T>(key: string, value: T, ttlSeconds: number = 60): void {
+    if (this.store.size >= this.maxEntries) {
+      const oldestKey = this.store.keys().next().value;
+      if (oldestKey) this.store.delete(oldestKey);
+    }
+    this.store.set(key, {
+      value,
+      expiresAt: Date.now() + ttlSeconds * 1000,
+    });
+  }
+
+  delete(key: string): void {
+    this.store.delete(key);
+  }
+
+  clear(): void {
+    this.store.clear();
+  }
+}
+
+export const driveCache = new DriveMemoryCache();
+
+/**
+ * Clears all cached Google Drive folder structures, tree results, and file lists.
+ * Call after uploads or file deletions to ensure immediate data freshness.
+ */
+export function clearDriveCache(): void {
+  driveCache.clear();
+}
+
 export interface DriveFolderResult {
   id: string;
   name: string;
@@ -193,6 +242,12 @@ export async function findFolderByName(
   parentFolderId: string,
   folderName: string
 ): Promise<string | null> {
+  const cacheKey = `folder:${parentFolderId}:${folderName}`;
+  const cached = driveCache.get<string>(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
   const drive = getGoogleDriveClient();
   if (!drive) {
     if (process.env.NODE_ENV === 'test' && !process.env.GOOGLE_CLIENT_ID) {
@@ -211,6 +266,7 @@ export async function findFolderByName(
 
     const files = res.data.files;
     if (files && files.length > 0 && files[0].id) {
+      driveCache.set(cacheKey, files[0].id, 300); // Cache for 5 minutes
       return files[0].id;
     }
     return null;
@@ -251,8 +307,13 @@ export async function ensureFolder(
       fields: 'id, name',
     });
 
+    const createdId = res.data.id || '';
+    if (createdId) {
+      driveCache.set(`folder:${parentFolderId}:${folderName}`, createdId, 300);
+    }
+
     return {
-      id: res.data.id || '',
+      id: createdId,
       name: folderName,
       isExisting: false,
     };
@@ -618,8 +679,14 @@ export interface DiscoveredArchiveTreeResult {
 export async function discoverArchiveTree(
   params: DiscoverArchiveTreeParams = {}
 ): Promise<DiscoveredArchiveTreeResult> {
-  const nearest = getNearestSabbath();
   const targetCategory: ArchiveCategory = params.category || 'documentation';
+  const cacheKey = `tree:${targetCategory}:${params.year || 'auto'}:${params.quarter || 'auto'}:${params.sabbath || 'auto'}`;
+  const cachedTree = driveCache.get<DiscoveredArchiveTreeResult>(cacheKey);
+  if (cachedTree) {
+    return cachedTree;
+  }
+
+  const nearest = getNearestSabbath();
   const todayStr = getWitaDateParts().dateStr;
 
   const drive = getGoogleDriveClient();
@@ -958,7 +1025,7 @@ export async function discoverArchiveTree(
 
   const files = Array.from(fileMap.values());
 
-  return {
+  const result: DiscoveredArchiveTreeResult = {
     availableYears,
     selectedYear,
     quarters,
@@ -967,6 +1034,10 @@ export async function discoverArchiveTree(
     selectedSabbath: activeSabbath,
     files,
   };
+
+  driveCache.set(cacheKey, result, 60); // Cache for 60 seconds
+
+  return result;
 }
 
 /**
@@ -987,38 +1058,46 @@ export async function getRandomFilesFromDrive(count: number = 6): Promise<FileIt
       if (eligible.length >= count) break;
       if (!sab.documentationFolderId) continue;
 
-      try {
-        const fRes = await drive.files.list({
-          q: `'${sab.documentationFolderId}' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false`,
-          fields: 'files(id, name, mimeType, size, webViewLink, webContentLink, thumbnailLink, createdTime)',
-          spaces: 'drive',
-          pageSize: 20,
-        });
+      const folderFilesCacheKey = `sabbath_files:${sab.documentationFolderId}`;
+      let files = driveCache.get<FileItem[]>(folderFilesCacheKey);
 
-        const files = (fRes.data.files || []).map((f) => ({
-          id: f.id || '',
-          name: f.name || 'Berkas Galilea',
-          mimeType: f.mimeType || 'application/octet-stream',
-          size: parseInt(f.size || '0', 10),
-          category: 'documentation' as ArchiveCategory,
-          fileType: determineFileType(f.mimeType || '', f.name || ''),
-          sabbathDate: sab.date,
-          sabbathTitle: sab.formattedTitle,
-          year: sab.year,
-          quarter: sab.quarter,
-          folderId: sab.documentationFolderId!,
-          thumbnailUrl: f.thumbnailLink ? f.thumbnailLink.replace(/=s\d+/, '=s800') : undefined,
-          webViewLink: f.webViewLink || undefined,
-          webContentLink: f.webContentLink || undefined,
-          uploadedAt: f.createdTime || new Date().toISOString(),
-          isRandomEligible: true,
-        }));
+      if (!files) {
+        try {
+          const fRes = await drive.files.list({
+            q: `'${sab.documentationFolderId}' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false`,
+            fields: 'files(id, name, mimeType, size, webViewLink, webContentLink, thumbnailLink, createdTime)',
+            spaces: 'drive',
+            pageSize: 20,
+          });
 
-        const photosAndVideos = files.filter(f => f.fileType === 'photo' || f.fileType === 'video');
-        eligible = [...eligible, ...photosAndVideos];
-      } catch (err) {
-        console.warn(`[Drive] Error fetching files for sabbath ${sab.date}:`, err);
+          files = (fRes.data.files || []).map((f) => ({
+            id: f.id || '',
+            name: f.name || 'Berkas Galilea',
+            mimeType: f.mimeType || 'application/octet-stream',
+            size: parseInt(f.size || '0', 10),
+            category: 'documentation' as ArchiveCategory,
+            fileType: determineFileType(f.mimeType || '', f.name || ''),
+            sabbathDate: sab.date,
+            sabbathTitle: sab.formattedTitle,
+            year: sab.year,
+            quarter: sab.quarter,
+            folderId: sab.documentationFolderId!,
+            thumbnailUrl: f.thumbnailLink ? f.thumbnailLink.replace(/=s\d+/, '=s800') : undefined,
+            webViewLink: f.webViewLink || undefined,
+            webContentLink: f.webContentLink || undefined,
+            uploadedAt: f.createdTime || new Date().toISOString(),
+            isRandomEligible: true,
+          }));
+
+          driveCache.set(folderFilesCacheKey, files, 60); // Cache for 60 seconds
+        } catch (err) {
+          console.warn(`[Drive] Error fetching files for sabbath ${sab.date}:`, err);
+          files = [];
+        }
       }
+
+      const photosAndVideos = files.filter(f => f.fileType === 'photo' || f.fileType === 'video');
+      eligible = [...eligible, ...photosAndVideos];
     }
 
     if (eligible.length > 0) {
@@ -1051,12 +1130,20 @@ export async function isFileInManagedArchive(fileId: string): Promise<boolean> {
     let depth = 0;
     
     while (depth < 10) {
-      const res = await drive.files.get({
-        fileId: currentId,
-        fields: 'id, parents',
-      });
-      
-      const parents = res.data.parents;
+      const parentCacheKey = `parent:${currentId}`;
+      let parents = driveCache.get<string[]>(parentCacheKey);
+
+      if (!parents) {
+        const res = await drive.files.get({
+          fileId: currentId,
+          fields: 'id, parents',
+        });
+        parents = res.data.parents || [];
+        if (parents.length > 0) {
+          driveCache.set(parentCacheKey, parents, 600); // Cache parent relations for 10 minutes
+        }
+      }
+
       if (!parents || parents.length === 0) {
         return false;
       }
