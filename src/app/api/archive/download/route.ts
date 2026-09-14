@@ -91,8 +91,8 @@ export async function GET(req: NextRequest) {
     });
 
     return new NextResponse(readable, { headers });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Download API error:', error);
-    return new NextResponse(error.message || 'Internal server error', { status: 500 });
+    return new NextResponse((error as Error).message || 'Internal server error', { status: 500 });
   }
 }

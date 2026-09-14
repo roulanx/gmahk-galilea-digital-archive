@@ -38,8 +38,8 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ success: true, data: results });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Reconcile error:', error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: (error as Error).message }, { status: 500 });
   }
 }

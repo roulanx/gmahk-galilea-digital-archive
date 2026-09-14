@@ -115,7 +115,7 @@ export default function MediaViewer({
         }
       }
 
-      const blob = new Blob(chunks as any, { type: response.headers.get('Content-Type') || 'application/octet-stream' });
+      const blob = new Blob(chunks as unknown as BlobPart[], { type: response.headers.get('Content-Type') || 'application/octet-stream' });
       const url = window.URL.createObjectURL(blob);
       
       const contentDisposition = response.headers.get('Content-Disposition');
@@ -140,12 +140,12 @@ export default function MediaViewer({
         message: 'Unduhan Berhasil',
         description: `"${fileName}" berhasil diunduh.`,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Download error:', error);
       showToast({
         type: 'error',
         message: 'Unduhan Gagal',
-        description: error.message || 'Terjadi kesalahan saat mengunduh berkas.',
+        description: (error as Error).message || 'Terjadi kesalahan saat mengunduh berkas.',
       });
     } finally {
       setIsDownloading(false);
@@ -180,7 +180,7 @@ export default function MediaViewer({
           text: 'Lihat berkas GMAHK Galilea',
           url: shareUrl,
         });
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (err.name !== 'AbortError') {
           copyToClipboard(shareUrl);
         }

@@ -145,7 +145,7 @@ function UploadContent() {
 
       xhr.addEventListener('load', () => {
         if (xhr.status >= 200 && xhr.status < 300) {
-          let json: any;
+          let json: Record<string, unknown>;
           try { json = JSON.parse(xhr.responseText); } catch(e){}
           if (json && json.success) {
             setQueue(prev => prev.map(q => q.id === id ? { ...q, status: 'SUCCESS', progress: 100 } : q));
@@ -171,8 +171,8 @@ function UploadContent() {
       }
       xhr.send(formData);
 
-    } catch (err: any) {
-      setQueue(prev => prev.map(q => q.id === id ? { ...q, status: 'ERROR', error: err.message || 'Kesalahan internal' } : q));
+    } catch (err: unknown) {
+      setQueue(prev => prev.map(q => q.id === id ? { ...q, status: 'ERROR', error: (err as Error).message || 'Kesalahan internal' } : q));
     }
   };
 
