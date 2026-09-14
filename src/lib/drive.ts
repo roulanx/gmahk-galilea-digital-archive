@@ -974,11 +974,53 @@ export async function discoverArchiveTree(
  */
 export async function getRandomFilesFromDrive(count: number = 6): Promise<FileItem[]> {
   try {
-    // We cannot do a global My Drive search for security reasons.
-    // Instead, we discover the most recent active sabbath in the managed tree
-    // and take random photos/videos from there.
+    const drive = getGoogleDriveClient();
+    if (!drive) return [];
+
     const tree = await discoverArchiveTree({ category: 'documentation' });
-    const eligible = tree.files.filter(f => f.fileType === 'photo' || f.fileType === 'video');
+    let eligible: FileItem[] = [];
+
+    // Sort sabbaths from newest to oldest
+    const sortedSabbaths = [...tree.sabbaths].sort((a, b) => b.date.localeCompare(a.date));
+
+    for (const sab of sortedSabbaths) {
+      if (eligible.length >= count) break;
+      if (!sab.documentationFolderId) continue;
+
+      try {
+        const fRes = await drive.files.list({
+          q: `'${sab.documentationFolderId}' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false`,
+          fields: 'files(id, name, mimeType, size, webViewLink, webContentLink, thumbnailLink, createdTime)',
+          spaces: 'drive',
+          pageSize: 20,
+        });
+
+        const files = (fRes.data.files || []).map((f) => ({
+          id: f.id || '',
+          name: f.name || 'Berkas Galilea',
+          mimeType: f.mimeType || 'application/octet-stream',
+          size: parseInt(f.size || '0', 10),
+          category: 'documentation' as ArchiveCategory,
+          fileType: determineFileType(f.mimeType || '', f.name || ''),
+          sabbathDate: sab.date,
+          sabbathTitle: sab.formattedTitle,
+          year: sab.year,
+          quarter: sab.quarter,
+          folderId: sab.documentationFolderId!,
+          thumbnailUrl: f.thumbnailLink ? f.thumbnailLink.replace(/=s\d+/, '=s800') : undefined,
+          webViewLink: f.webViewLink || undefined,
+          webContentLink: f.webContentLink || undefined,
+          uploadedAt: f.createdTime || new Date().toISOString(),
+          isRandomEligible: true,
+        }));
+
+        const photosAndVideos = files.filter(f => f.fileType === 'photo' || f.fileType === 'video');
+        eligible = [...eligible, ...photosAndVideos];
+      } catch (err) {
+        console.warn(`[Drive] Error fetching files for sabbath ${sab.date}:`, err);
+      }
+    }
+
     if (eligible.length > 0) {
       return eligible.sort(() => 0.5 - Math.random()).slice(0, count);
     }
