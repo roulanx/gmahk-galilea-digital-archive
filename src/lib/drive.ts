@@ -973,46 +973,8 @@ export async function discoverArchiveTree(
  * Fetches random images or videos directly from Google Drive for homepage showcase
  */
 export async function getRandomFilesFromDrive(count: number = 6): Promise<FileItem[]> {
-  const drive = getGoogleDriveClient();
-  if (!drive) return [];
-
-  try {
-    const res = await drive.files.list({
-      q: "mimeType contains 'image/' and trashed = false",
-      fields: 'files(id, name, mimeType, size, webViewLink, webContentLink, thumbnailLink, createdTime, parents)',
-      spaces: 'drive',
-      pageSize: 40,
-      orderBy: 'createdTime desc',
-    });
-
-    const files = res.data.files || [];
-    if (files.length === 0) return [];
-
-    const shuffled = [...files].sort(() => 0.5 - Math.random());
-    const selected = shuffled.slice(0, count);
-
-    return selected.map((f) => ({
-      id: f.id || '',
-      name: f.name || 'Foto Galilea',
-      mimeType: f.mimeType || 'image/jpeg',
-      size: parseInt(f.size || '0', 10),
-      category: 'documentation',
-      fileType: determineFileType(f.mimeType || '', f.name || ''),
-      sabbathDate: '',
-      sabbathTitle: 'Galilea Archive',
-      year: new Date().getFullYear(),
-      quarter: 3,
-      folderId: f.parents?.[0] || '',
-      thumbnailUrl: f.thumbnailLink ? f.thumbnailLink.replace(/=s\d+/, '=s800') : undefined,
-      webViewLink: f.webViewLink || undefined,
-      webContentLink: f.webContentLink || undefined,
-      uploadedAt: f.createdTime || new Date().toISOString(),
-      isRandomEligible: true,
-    }));
-  } catch (err) {
-    console.error('[Drive] Error getting random files from Drive:', err);
-    return [];
-  }
+  // BANNED: Global My Drive search is prohibited for security data isolation.
+  return [];
 }
 
 
