@@ -325,7 +325,14 @@ function ArchiveContent() {
           onPrev={viewerIndex > 0 ? () => setViewerIndex(viewerIndex - 1) : undefined}
           onFileDeleted={(deletedId) => {
             setFiles(prev => prev.filter(f => f.id !== deletedId));
-            // Trigger a background refetch to ensure source of truth is synced
+            // Background refetch executed
+              const url = /api/archive/tree?year=${year}&quarter=${quarter}&category=${category}${selectedSabbath ? '&sabbath=' + encodeURIComponent(selectedSabbath) : ''};
+              fetch(url).then(res => res.json()).then(json => {
+                 if (json.success && json.data) {
+                    setFiles(json.data.files || []);
+                    lastFetchedKeyRef.current = ${year}---;
+                 }
+              }).catch(console.error);
             
           }}
         />
@@ -341,4 +348,5 @@ export default function ArchivePage() {
     </Suspense>
   );
 }
+
 
