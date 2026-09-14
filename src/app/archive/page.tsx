@@ -326,11 +326,11 @@ function ArchiveContent() {
           onFileDeleted={(deletedId) => {
             setFiles(prev => prev.filter(f => f.id !== deletedId));
             // Background refetch executed
-              const url = /api/archive/tree?year=${year}&quarter=${quarter}&category=${category}${selectedSabbath ? '&sabbath=' + encodeURIComponent(selectedSabbath) : ''};
+              const url = `/api/archive/tree?year=${year}&quarter=${quarter}&category=${category}${selectedSabbath ? '&sabbath=' + encodeURIComponent(selectedSabbath) : ''}`;
               fetch(url).then(res => res.json()).then(json => {
                  if (json.success && json.data) {
                     setFiles(json.data.files || []);
-                    lastFetchedKeyRef.current = ${year}---;
+                    lastFetchedKeyRef.current = `${year}-${quarter}-${category}-${json.data.selectedSabbath || selectedSabbath}`;
                  }
               }).catch(console.error);
             
@@ -348,5 +348,6 @@ export default function ArchivePage() {
     </Suspense>
   );
 }
+
 
 

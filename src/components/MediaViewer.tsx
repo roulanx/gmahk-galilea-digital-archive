@@ -336,7 +336,7 @@ export default function MediaViewer({
       onClick={onClose}
     >
       <div className="absolute top-0 left-0 right-0 p-6 flex items-start justify-between text-white z-20 pointer-events-none">
-        <div className="max-w-2xl">
+        <div className="max-w-2xl">`n          <div className="hidden">[GALILEA-PROD-CHECK-54978E9]</div>
         </div>
         <div className="flex flex-wrap items-center gap-3 ml-auto pointer-events-auto">
           
@@ -482,5 +482,6 @@ export default function MediaViewer({
     </div>
   );
 }
+
 
 
