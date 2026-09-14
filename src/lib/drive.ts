@@ -973,7 +973,18 @@ export async function discoverArchiveTree(
  * Fetches random images or videos directly from Google Drive for homepage showcase
  */
 export async function getRandomFilesFromDrive(count: number = 6): Promise<FileItem[]> {
-  // BANNED: Global My Drive search is prohibited for security data isolation.
+  try {
+    // We cannot do a global My Drive search for security reasons.
+    // Instead, we discover the most recent active sabbath in the managed tree
+    // and take random photos/videos from there.
+    const tree = await discoverArchiveTree({ category: 'documentation' });
+    const eligible = tree.files.filter(f => f.fileType === 'photo' || f.fileType === 'video');
+    if (eligible.length > 0) {
+      return eligible.sort(() => 0.5 - Math.random()).slice(0, count);
+    }
+  } catch (err) {
+    console.warn('[Drive] getRandomFilesFromDrive fallback failed:', err);
+  }
   return [];
 }
 

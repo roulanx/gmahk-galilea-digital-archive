@@ -11,7 +11,15 @@ export async function GET(req: NextRequest) {
 
     let randomItems = await getRandomArchiveSample(count);
     if (!randomItems || randomItems.length === 0) {
-      randomItems = []; // No fallback to global drive
+      randomItems = await getRandomFilesFromDrive(count);
+    } else if (randomItems.length < count) {
+      const driveItems = await getRandomFilesFromDrive(count - randomItems.length);
+      const existingIds = new Set(randomItems.map(i => i.id));
+      for (const item of driveItems) {
+        if (!existingIds.has(item.id)) {
+          randomItems.push(item);
+        }
+      }
     }
 
     return NextResponse.json({
