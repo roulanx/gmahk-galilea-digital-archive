@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentQuarterInfo, getNextSabbath, getPreviousSabbath, getDefaultUploadSabbath } from '@/lib/sabbath';
 
-
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
