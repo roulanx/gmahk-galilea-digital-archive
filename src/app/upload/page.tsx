@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useRef, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   X,
@@ -29,6 +29,7 @@ interface QueueItem {
 }
 
 function UploadContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const querySabbath = searchParams.get('sabbath') || '';
   const queryCategory = searchParams.get('category') as ArchiveCategory | null;
@@ -108,6 +109,8 @@ function UploadContent() {
             description: `${queue.length - failed} berhasil, ${failed} gagal.`,
           });
         }
+        router.refresh();
+        fetch('/api/sabbath?_t=' + Date.now()).catch(()=>{});
       }
       return;
     }
@@ -192,7 +195,20 @@ function UploadContent() {
   };
 
   const addFilesToQueue = (files: File[]) => {
-    const newItems: QueueItem[] = files.map(file => ({
+    const validFiles = files.filter(f => f.size > 0);
+    const emptyFiles = files.filter(f => f.size === 0);
+    
+    if (emptyFiles.length > 0) {
+      showToast({
+        type: 'warning',
+        message: 'Berkas Kosong',
+        description: `${emptyFiles.length} berkas diabaikan karena ukurannya 0 byte.`,
+      });
+    }
+
+    if (validFiles.length === 0) return;
+
+    const newItems: QueueItem[] = validFiles.map(file => ({
       id: Math.random().toString(36).substring(7),
       file,
       status: 'WAITING',
