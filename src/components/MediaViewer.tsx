@@ -42,7 +42,10 @@ export default function MediaViewer({
     setInternalIndex(initialIndex);
   }
 
-  console.info('[GALILEA-PROD-CHECK-54978E9] MediaViewer loaded');
+  useEffect(() => {
+    console.info('[GALILEA MEDIA VIEWER 4E861B] MediaViewer loaded');
+  }, []);
+
   const currentFile = file ?? (files && files[internalIndex]);
   const hasFiles = Boolean(files && files.length > 0);
 
@@ -332,22 +335,23 @@ export default function MediaViewer({
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-xl"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-xl"
       onClick={onClose}
     >
-      <div className="absolute top-0 left-0 right-0 p-6 flex items-start justify-between text-white z-20 pointer-events-none">
-        <div className="max-w-2xl">`n          <div className="hidden">[GALILEA-PROD-CHECK-54978E9]</div>
+      <div className="absolute top-0 left-0 right-0 p-4 sm:p-6 flex items-start justify-between text-white z-50 pointer-events-none">
+        <div className="max-w-2xl">
+          <div className="hidden" data-testid="marker-galilea">[GALILEA MEDIA VIEWER 4E861B]</div>
         </div>
-        <div className="flex flex-wrap items-center gap-3 ml-auto pointer-events-auto">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 ml-auto pointer-events-auto">
           
           <button
             onClick={handleDownload}
             disabled={isDownloading}
-            className="flex items-center justify-center h-11 px-4 gap-2 rounded-full bg-white text-black hover:bg-white/80 font-medium transition-colors"
+            className="flex items-center justify-center h-10 sm:h-11 px-3 sm:px-4 gap-2 rounded-full bg-white text-black hover:bg-white/80 font-medium transition-colors"
             title="Unduh"
           >
             <Download className="w-4 h-4" />
-            <span className="text-sm">
+            <span className="text-sm font-semibold">
               {isDownloading ? (
                 downloadProgress !== null && downloadProgress <= 100 
                   ? `${downloadProgress}%` 
@@ -358,11 +362,11 @@ export default function MediaViewer({
 
           <button
             onClick={handleShare}
-            className="flex items-center justify-center h-11 px-4 gap-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+            className="flex items-center justify-center h-10 sm:h-11 px-3 sm:px-4 gap-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
             title="Bagikan"
           >
             <Share2 className="w-4 h-4" />
-            <span className="text-sm hidden sm:inline">BAGIKAN</span>
+            <span className="text-sm">BAGIKAN</span>
           </button>
 
           {currentFile.webViewLink && (
