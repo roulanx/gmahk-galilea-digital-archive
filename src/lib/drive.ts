@@ -1014,3 +1014,51 @@ export async function getRandomFilesFromDrive(count: number = 6): Promise<FileIt
     return [];
   }
 }
+
+
+/**
+ * Global Managed-Folder Validator
+ * Ensures a file belongs to either GMAHK Galilea/Dokumentasi or GMAHK Galilea/File Ibadah.
+ */
+export async function isFileInManagedArchive(fileId: string): Promise<boolean> {
+  const drive = getGoogleDriveClient();
+  if (!drive) return false;
+
+  const validRoots = [
+    process.env.GOOGLE_DRIVE_DOKUMENTASI_FOLDER_ID,
+    process.env.GOOGLE_DRIVE_FILE_IBADAH_FOLDER_ID,
+  ].filter(Boolean);
+
+  if (validRoots.length === 0) return false;
+
+  try {
+    let currentId = fileId;
+    let depth = 0;
+    
+    while (depth < 10) {
+      const res = await drive.files.get({
+        fileId: currentId,
+        fields: 'id, parents',
+      });
+      
+      const parents = res.data.parents;
+      if (!parents || parents.length === 0) {
+        return false;
+      }
+      
+      for (const parentId of parents) {
+        if (validRoots.includes(parentId)) {
+          return true;
+        }
+      }
+      
+      currentId = parents[0];
+      depth++;
+    }
+    
+    return false;
+  } catch (err) {
+    console.error('Error validating managed archive boundary for', fileId, err);
+    return false;
+  }
+}

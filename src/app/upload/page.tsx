@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useEffect, useState, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -6,11 +6,27 @@ import Link from 'next/link';
 import {
   X,
   FileText,
-  Upload,
+  Upload as UploadIcon,
+  CheckCircle2,
+  AlertCircle,
+  RefreshCw,
+  Image as ImageIcon,
+  Video,
+  Play
 } from 'lucide-react';
 import { ArchiveCategory, SabbathInfo } from '@/lib/types';
 import { useToast } from '@/context/ToastContext';
 import { useAuth } from '@/context/AuthContext';
+import Navbar from '@/components/Navbar';
+
+interface QueueItem {
+  id: string;
+  file: File;
+  status: 'WAITING' | 'UPLOADING' | 'SUCCESS' | 'ERROR';
+  progress: number;
+  error?: string;
+  xhr?: XMLHttpRequest;
+}
 
 function UploadContent() {
   const searchParams = useSearchParams();
@@ -27,10 +43,12 @@ function UploadContent() {
   const [selectedSabbathDate, setSelectedSabbathDate] = useState<string>(querySabbath);
   const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
 
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [queue, setQueue] = useState<QueueItem[]>([]);
   const [dragOver, setDragOver] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [uploadActive, setUploadActive] = useState(false);
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  
+  const MAX_CONCURRENT = 3;
 
   useEffect(() => {
     let isMounted = true;
@@ -50,245 +68,400 @@ function UploadContent() {
     return () => { isMounted = false; };
   }, [querySabbath]);
 
-  const selectedSabbathInfo = sabbathList.find((s) => s.date === selectedSabbathDate) || defaultSabbath;
-  const activeFormattedTitle = selectedSabbathInfo?.formattedTitle || 'MENYIAPKAN...';
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (uploadActive) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [uploadActive]);
 
-  const handleFileDrop = (e: React.DragEvent) => {
+  useEffect(() => {
+    if (uploadActive) {
+      processQueue();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queue, uploadActive]);
+
+  const processQueue = async () => {
+    const activeUploads = queue.filter(q => q.status === 'UPLOADING').length;
+    if (activeUploads >= MAX_CONCURRENT) return;
+
+    const waitingItems = queue.filter(q => q.status === 'WAITING');
+    if (waitingItems.length === 0) {
+      if (activeUploads === 0 && queue.length > 0) {
+        setUploadActive(false);
+        const failed = queue.filter(q => q.status === 'ERROR').length;
+        if (failed === 0) {
+          showToast({
+            type: 'success',
+            message: 'Unggahan Selesai',
+            description: `${queue.length} berkas berhasil diunggah.`,
+          });
+        } else {
+          showToast({
+            type: 'warning',
+            message: 'Unggahan Selesai Sebagian',
+            description: `${queue.length - failed} berhasil, ${failed} gagal.`,
+          });
+        }
+      }
+      return;
+    }
+
+    const toStart = waitingItems.slice(0, MAX_CONCURRENT - activeUploads);
+    
+    toStart.forEach(item => {
+      startUpload(item.id);
+    });
+  };
+
+  const startUpload = async (id: string) => {
+    const item = queue.find(q => q.id === id);
+    if (!item) return;
+
+    setQueue(prev => prev.map(q => q.id === id ? { ...q, status: 'UPLOADING', progress: 0 } : q));
+
+    try {
+      const idToken = await getIdToken();
+      const formData = new FormData();
+      formData.append('files', item.file);
+      formData.append('category', category);
+      formData.append('sabbathDate', selectedSabbathDate);
+
+      const xhr = new XMLHttpRequest();
+      
+      setQueue(prev => prev.map(q => q.id === id ? { ...q, xhr } : q));
+
+      xhr.upload.addEventListener('progress', (event) => {
+        if (event.lengthComputable) {
+          const percentComplete = Math.round((event.loaded / event.total) * 100);
+          setQueue(prev => prev.map(q => q.id === id ? { ...q, progress: percentComplete } : q));
+        }
+      });
+
+      xhr.addEventListener('load', () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          let json: any;
+          try { json = JSON.parse(xhr.responseText); } catch(e){}
+          if (json && json.success) {
+            setQueue(prev => prev.map(q => q.id === id ? { ...q, status: 'SUCCESS', progress: 100 } : q));
+          } else {
+            setQueue(prev => prev.map(q => q.id === id ? { ...q, status: 'ERROR', error: json?.error || 'Server menolak berkas' } : q));
+          }
+        } else {
+          setQueue(prev => prev.map(q => q.id === id ? { ...q, status: 'ERROR', error: `Error HTTP ${xhr.status}` } : q));
+        }
+      });
+
+      xhr.addEventListener('error', () => {
+        setQueue(prev => prev.map(q => q.id === id ? { ...q, status: 'ERROR', error: 'Koneksi terputus' } : q));
+      });
+
+      xhr.addEventListener('abort', () => {
+        setQueue(prev => prev.map(q => q.id === id ? { ...q, status: 'ERROR', error: 'Dibatalkan pengguna' } : q));
+      });
+
+      xhr.open('POST', '/api/upload');
+      if (idToken) {
+        xhr.setRequestHeader('Authorization', `Bearer ${idToken}`);
+      }
+      xhr.send(formData);
+
+    } catch (err: any) {
+      setQueue(prev => prev.map(q => q.id === id ? { ...q, status: 'ERROR', error: err.message || 'Kesalahan internal' } : q));
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      addFilesToQueue(Array.from(e.target.files));
+    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      setSelectedFiles((prev) => [...prev, ...Array.from(e.dataTransfer.files as FileList)]);
+      addFilesToQueue(Array.from(e.dataTransfer.files));
     }
   };
 
-  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      setSelectedFiles((prev) => [...prev, ...Array.from(e.target.files as FileList)]);
-    }
+  const addFilesToQueue = (files: File[]) => {
+    const newItems: QueueItem[] = files.map(file => ({
+      id: Math.random().toString(36).substring(7),
+      file,
+      status: 'WAITING',
+      progress: 0,
+    }));
+    setQueue(prev => [...prev, ...newItems]);
   };
 
-  const handleStartUpload = async () => {
-    if (selectedFiles.length === 0 || !selectedSabbathDate) return;
-    setUploading(true);
-    const formData = new FormData();
-    formData.append('category', category);
-    formData.append('sabbathDate', selectedSabbathDate);
-    selectedFiles.forEach((file) => formData.append('files', file));
+  const removeQueueItem = (id: string) => {
+    const item = queue.find(q => q.id === id);
+    if (item?.xhr && item.status === 'UPLOADING') {
+      item.xhr.abort();
+    }
+    setQueue(prev => prev.filter(q => q.id !== id));
+  };
 
-    try {
-      const token = await getIdToken();
-      const res = await fetch('/api/upload', { 
-        method: 'POST', 
-        headers: token ? { 'Authorization': `Bearer ${token}` } : undefined,
-        body: formData 
-      });
-      const json = await res.json();
-      if (json.success) {
-        setUploadSuccess(true);
-      } else {
-        showToast({ type: 'error', message: 'Gagal mengunggah berkas.', description: json.error || 'Terjadi kesalahan sistem.' });
+  const retryItem = (id: string) => {
+    setQueue(prev => prev.map(q => q.id === id ? { ...q, status: 'WAITING', progress: 0, error: undefined } : q));
+    setUploadActive(true);
+  };
+
+  const handleStartUploads = () => {
+    if (queue.filter(q => q.status === 'WAITING').length === 0) return;
+    setUploadActive(true);
+  };
+
+  const handleCancelAll = () => {
+    queue.forEach(item => {
+      if (item.xhr && item.status === 'UPLOADING') {
+        item.xhr.abort();
       }
-    } catch (err) {
-      console.error('Upload error:', err);
-      showToast({ type: 'error', message: 'Terjadi kesalahan jaringan.', description: 'Silakan periksa koneksi Anda.' });
-    } finally {
-      setUploading(false);
-    }
+    });
+    setUploadActive(false);
+    setShowCloseConfirm(false);
+    setQueue(prev => prev.map(q => q.status === 'UPLOADING' || q.status === 'WAITING' ? { ...q, status: 'ERROR', error: 'Dibatalkan pengguna' } : q));
   };
 
-  if (uploadSuccess) {
-    return (
-      <div className="min-h-screen bg-black text-white selection:bg-white selection:text-black pb-32 pt-32 px-6 flex flex-col items-center justify-center text-center animate-fade-in">
-        <h1 className="editorial-title uppercase">TERSIMPAN.</h1>
-        <p className="editorial-meta mt-6 mb-8">{activeFormattedTitle}</p>
-        <p className="editorial-desc mb-16">
-          Berkas pelayanan berhasil diunggah.<br/>
-          Sudah tersimpan di arsip digital dan siap dilihat kembali.
-        </p>
-        <div className="flex flex-col sm:flex-row gap-4">
-          <Link href={`/archive?category=${category}&sabbath=${selectedSabbathDate}`} className="editorial-button">
-            LIHAT DOKUMENTASI
-          </Link>
-          <button 
-            onClick={() => { setUploadSuccess(false); setSelectedFiles([]); }}
-            className="editorial-button-secondary"
-          >
-            UNGGAH LAGI
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const totalFiles = queue.length;
+  const successFiles = queue.filter(q => q.status === 'SUCCESS').length;
+  const errorFiles = queue.filter(q => q.status === 'ERROR').length;
+  const waitingFiles = queue.filter(q => q.status === 'WAITING').length;
+  const activeFiles = queue.filter(q => q.status === 'UPLOADING').length;
+  
+  const overallProgress = totalFiles === 0 ? 0 : Math.round((queue.reduce((acc, curr) => acc + curr.progress, 0)) / totalFiles);
+
+  const formatBytes = (bytes: number) => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  };
 
   return (
-    <div className="min-h-screen bg-black text-white selection:bg-white selection:text-black pb-40">
-      <div className="max-w-[1000px] mx-auto px-6 sm:px-12">
-        
-        {/* EDITORIAL HEADER */}
-        <section className="pt-24 sm:pt-32 pb-20">
-          <span className="editorial-eyebrow">PORTAL PELAYANAN</span>
-          <h1 className="editorial-title uppercase">UNGGAH<br/>DOKUMENTASI</h1>
-          <p className="editorial-desc mt-6">
-            Simpan foto, video, dan berkas ibadah ke dalam<br/> arsip resmi jemaat Galilea.
-          </p>
-        </section>
+    <main className="min-h-screen bg-[#050505] text-white">
+      <Navbar />
 
-        <div className="space-y-32">
-          {/* STEP 01: SABBATH */}
-          <section>
-            <h2 className="workflow-number">01</h2>
-            <h3 className="workflow-step">PILIH SABAT & KATEGORI</h3>
-            
-            <div className="flex flex-col md:flex-row gap-6">
-              <div className="flex-1 bg-white/5 border border-white/10 rounded-2xl p-8">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="editorial-meta mb-2">SABAT TUJUAN</p>
-                    <h4 className="text-2xl font-light text-white uppercase">{activeFormattedTitle}</h4>
-                  </div>
-                  <button 
-                    onClick={() => setShowDatePicker(!showDatePicker)}
-                    className="text-xs font-mono tracking-widest text-white/50 hover:text-white uppercase underline underline-offset-4"
-                  >
-                    {showDatePicker ? 'TUTUP' : 'UBAH SABAT'}
-                  </button>
-                </div>
+      <div className="max-w-4xl mx-auto px-6 py-32">
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-3xl font-medium tracking-tight">Pusat Unggahan</h1>
+          <Link
+            href="/archive"
+            onClick={(e) => {
+              if (uploadActive) {
+                e.preventDefault();
+                setShowCloseConfirm(true);
+              }
+            }}
+            className="p-3 rounded-full bg-white/5 hover:bg-white/10 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </Link>
+        </div>
 
-                {showDatePicker && sabbathList.length > 0 && (
-                  <div className="mt-8 pt-8 border-t border-white/10 grid grid-cols-1 sm:grid-cols-2 gap-4 animate-fade-in-up">
-                    {sabbathList.map(sab => (
-                      <button
-                        key={sab.date}
-                        onClick={() => { setSelectedSabbathDate(sab.date); setShowDatePicker(false); }}
-                        className={`text-left p-4 rounded-xl transition-all ${
-                          selectedSabbathDate === sab.date 
-                            ? 'bg-white text-black' 
-                            : 'bg-white/5 hover:bg-white/10 text-white'
-                        }`}
-                      >
-                        <p className={`text-[10px] font-mono tracking-widest uppercase mb-1 ${selectedSabbathDate === sab.date ? 'text-black/50' : 'text-white/40'}`}>
-                          {sab.date}
-                        </p>
-                        <p className="text-sm font-medium">{sab.formattedTitle}</p>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="flex-1 bg-white/5 border border-white/10 rounded-2xl p-8 flex flex-col gap-4">
-                <p className="editorial-meta">KATEGORI ARSIP</p>
-                <div className="flex items-center gap-3 bg-white/5 p-1.5 rounded-full">
-                  <button
-                    onClick={() => setCategory('documentation')}
-                    className={`flex-1 py-3 text-[10px] font-mono tracking-widest uppercase rounded-full transition-all ${
-                      category === 'documentation' ? 'bg-white text-black' : 'text-white/50 hover:text-white'
-                    }`}
-                  >
-                    FOTO / VIDEO
-                  </button>
-                  <button
-                    onClick={() => setCategory('worship')}
-                    className={`flex-1 py-3 text-[10px] font-mono tracking-widest uppercase rounded-full transition-all ${
-                      category === 'worship' ? 'bg-white text-black' : 'text-white/50 hover:text-white'
-                    }`}
-                  >
-                    BERKAS IBADAH
-                  </button>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* STEP 02: SELECT FILES */}
-          <section>
-            <h2 className="workflow-number">02</h2>
-            <h3 className="workflow-step">PILIH BERKAS</h3>
-
-            <div
-              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={handleFileDrop}
-              className={`relative w-full border border-white/10 rounded-[2rem] p-12 sm:p-24 flex flex-col items-center justify-center text-center transition-all ${
-                dragOver ? 'bg-white/10 border-white/30 scale-[1.01]' : 'bg-white/5 hover:bg-white/[0.07]'
-              }`}
-            >
-              <Upload className="w-12 h-12 text-white/30 mb-8" />
-              <h4 className="text-2xl sm:text-4xl font-light text-white mb-6">SERET BERKAS KE SINI</h4>
-              <p className="editorial-desc mb-10 max-w-sm">
-                Bisa berupa foto, rekaman video pelayanan, materi presentasi, atau PDF tata ibadah.
-              </p>
-              
-              <input
-                type="file"
-                multiple
-                ref={fileInputRef}
-                className="hidden"
-                onChange={handleFileInputChange}
-              />
+        {/* Configuration Row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+          <div className="bg-white/5 border border-white/10 rounded-3xl p-6">
+            <h3 className="text-sm text-white/50 mb-3">Tujuan Penyimpanan</h3>
+            <div className="flex bg-black/40 rounded-full p-1 border border-white/5">
               <button
-                onClick={() => fileInputRef.current?.click()}
-                className="editorial-button-secondary"
-              >
-                PILIH BERKAS
-              </button>
-            </div>
-
-            {selectedFiles.length > 0 && (
-              <div className="mt-8 animate-fade-in-up">
-                <p className="editorial-meta mb-4">{selectedFiles.length} BERKAS DIPILIH</p>
-                <div className="flex flex-col gap-3">
-                  {selectedFiles.map((f, i) => (
-                    <div key={i} className="flex items-center justify-between bg-white/5 border border-white/10 p-4 rounded-xl">
-                      <div className="flex items-center gap-4 overflow-hidden">
-                        <FileText className="w-5 h-5 text-white/40 shrink-0" />
-                        <span className="text-sm font-light text-white truncate">{f.name}</span>
-                      </div>
-                      <button 
-                        onClick={() => setSelectedFiles(selectedFiles.filter((_, idx) => idx !== i))}
-                        className="p-2 hover:bg-white/10 rounded-full text-white/50 hover:text-white transition-colors"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </section>
-
-          {/* STEP 03: UPLOAD */}
-          {selectedFiles.length > 0 && (
-            <section className="animate-fade-in-up">
-              <h2 className="workflow-number">03</h2>
-              <h3 className="workflow-step">UNGGAH</h3>
-              
-              <button
-                onClick={handleStartUpload}
-                disabled={uploading}
-                className={`w-full py-8 rounded-[2rem] flex flex-col items-center justify-center gap-4 transition-all ${
-                  uploading 
-                    ? 'bg-white/10 text-white cursor-wait' 
-                    : 'bg-white text-black hover:bg-white/90'
+                onClick={() => setCategory('documentation')}
+                disabled={uploadActive}
+                className={`flex-1 py-2 text-sm font-medium rounded-full transition-colors ${
+                  category === 'documentation' ? 'bg-white text-black' : 'text-white hover:bg-white/10'
                 }`}
               >
-                {uploading ? (
-                  <>
-                    <div className="w-8 h-8 rounded-full border-2 border-white/20 border-t-white animate-spin" />
-                    <span className="text-xs font-mono tracking-widest uppercase">MENGUNGGAH...</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="text-xl sm:text-2xl font-light tracking-wide uppercase">Simpan ke Arsip</span>
-                    <span className="text-[10px] font-mono tracking-widest uppercase opacity-50">Tujuan: {activeFormattedTitle}</span>
-                  </>
-                )}
+                Dokumentasi
               </button>
-            </section>
-          )}
+              <button
+                onClick={() => setCategory('worship')}
+                disabled={uploadActive}
+                className={`flex-1 py-2 text-sm font-medium rounded-full transition-colors ${
+                  category === 'worship' ? 'bg-white text-black' : 'text-white hover:bg-white/10'
+                }`}
+              >
+                File Ibadah
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-white/5 border border-white/10 rounded-3xl p-6 relative">
+            <h3 className="text-sm text-white/50 mb-3">Pilih Hari Sabat</h3>
+            <button
+              onClick={() => !uploadActive && setShowDatePicker(!showDatePicker)}
+              className="w-full bg-black/40 border border-white/5 rounded-2xl p-4 text-left flex justify-between items-center hover:bg-white/5 transition-colors"
+            >
+              <div>
+                <div className="text-sm font-medium text-white">
+                  {sabbathList.find(s => s.date === selectedSabbathDate)?.formattedTitle || 'Sabat Kustom'}
+                </div>
+                <div className="text-xs text-white/40 mt-1">{selectedSabbathDate}</div>
+              </div>
+            </button>
+
+            {showDatePicker && (
+              <div className="absolute top-full left-0 right-0 mt-2 z-20 bg-[#111] border border-white/10 rounded-2xl overflow-hidden shadow-2xl max-h-60 overflow-y-auto">
+                {sabbathList.map((sab) => (
+                  <button
+                    key={sab.date}
+                    onClick={() => {
+                      setSelectedSabbathDate(sab.date);
+                      setShowDatePicker(false);
+                    }}
+                    className={`w-full p-4 text-left text-sm transition-colors flex justify-between items-center ${
+                      selectedSabbathDate === sab.date ? 'bg-white/10 text-white font-medium' : 'text-white/70 hover:bg-white/5'
+                    }`}
+                  >
+                    <span>{sab.formattedTitle}</span>
+                    {sab.isToday && <span className="text-[10px] uppercase bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">Sabat Ini</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
+
+        {/* Dropzone */}
+        {!uploadActive && (
+          <div
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={handleDrop}
+            onClick={() => fileInputRef.current?.click()}
+            className={`border-2 border-dashed rounded-3xl p-12 text-center cursor-pointer transition-colors ${
+              dragOver ? 'border-white bg-white/5' : 'border-white/20 hover:border-white/40 hover:bg-white/5'
+            }`}
+          >
+            <input
+              type="file"
+              multiple
+              ref={fileInputRef}
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+            <div className="w-16 h-16 rounded-full bg-white/10 mx-auto flex items-center justify-center mb-4">
+              <UploadIcon className="w-8 h-8 text-white" />
+            </div>
+            <h3 className="text-lg font-medium text-white mb-2">Seret & Letakkan Berkas di Sini</h3>
+            <p className="text-white/50 text-sm">Pilih berkas dari perangkat Anda</p>
+          </div>
+        )}
+
+        {/* Queue Display */}
+        {totalFiles > 0 && (
+          <div className="mt-8">
+            <div className="flex justify-between items-end mb-4">
+              <div>
+                <h2 className="text-lg font-medium text-white">Antrean ({totalFiles} berkas)</h2>
+                {(uploadActive || successFiles > 0 || errorFiles > 0) && (
+                  <p className="text-sm text-white/50 mt-1">
+                    {successFiles} selesai, {errorFiles} gagal, {waitingFiles + activeFiles} antre
+                  </p>
+                )}
+              </div>
+              
+              {uploadActive ? (
+                <div className="text-right">
+                  <div className="text-sm font-medium mb-1">{overallProgress}% Selesai</div>
+                  <div className="w-32 h-2 bg-white/10 rounded-full overflow-hidden">
+                    <div className="h-full bg-white transition-all duration-300" style={{ width: `${overallProgress}%` }}></div>
+                  </div>
+                </div>
+              ) : (
+                waitingFiles > 0 && (
+                  <button
+                    onClick={handleStartUploads}
+                    className="bg-white text-black px-6 py-2 rounded-full font-medium text-sm hover:bg-white/80 transition-colors"
+                  >
+                    MULAI UNGGAH
+                  </button>
+                )
+              )}
+            </div>
+
+            <div className="space-y-3">
+              {queue.map(item => (
+                <div key={item.id} className="bg-white/5 border border-white/10 rounded-2xl p-4 flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-lg bg-black/50 flex items-center justify-center flex-shrink-0">
+                    {item.file.type.startsWith('image/') ? <ImageIcon className="w-5 h-5 text-white/70" /> :
+                     item.file.type.startsWith('video/') ? <Video className="w-5 h-5 text-white/70" /> :
+                     <FileText className="w-5 h-5 text-white/70" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between mb-1">
+                      <span className="text-sm font-medium text-white truncate pr-4">{item.file.name}</span>
+                      <span className="text-xs text-white/40 whitespace-nowrap">{formatBytes(item.file.size)}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 h-1.5 bg-black/50 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full transition-all duration-300 ${
+                            item.status === 'ERROR' ? 'bg-red-500' : 
+                            item.status === 'SUCCESS' ? 'bg-green-500' : 'bg-white'
+                          }`}
+                          style={{ width: `${item.progress}%` }}
+                        ></div>
+                      </div>
+                      <span className="text-xs font-medium w-10 text-right">
+                        {item.status === 'SUCCESS' ? <CheckCircle2 className="w-4 h-4 text-green-500 ml-auto" /> :
+                         item.status === 'ERROR' ? <AlertCircle className="w-4 h-4 text-red-500 ml-auto" /> :
+                         `${item.progress}%`}
+                      </span>
+                    </div>
+                    {item.error && <p className="text-xs text-red-400 mt-1">{item.error}</p>}
+                  </div>
+                  
+                  {!uploadActive && item.status === 'ERROR' && (
+                    <button onClick={() => retryItem(item.id)} className="p-2 rounded-full hover:bg-white/10 text-white/70" title="Coba Lagi">
+                      <RefreshCw className="w-4 h-4" />
+                    </button>
+                  )}
+                  
+                  {!uploadActive && item.status !== 'SUCCESS' && (
+                    <button onClick={() => removeQueueItem(item.id)} className="p-2 rounded-full hover:bg-white/10 text-white/70" title="Hapus">
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
-    </div>
+
+      {/* Close Confirmation Modal */}
+      {showCloseConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <div className="bg-[#111] border border-white/10 p-8 rounded-3xl max-w-sm w-full mx-4 shadow-2xl text-center">
+            <h3 className="text-xl font-medium mb-2">Unggahan Masih Berlangsung</h3>
+            <p className="text-white/60 text-sm mb-6">Meninggalkan halaman ini akan membatalkan unggahan yang belum selesai.</p>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => setShowCloseConfirm(false)}
+                className="w-full py-3 rounded-full bg-white text-black font-medium hover:bg-white/80 transition-colors"
+              >
+                Tetap di Halaman
+              </button>
+              <Link
+                href="/archive"
+                onClick={handleCancelAll}
+                className="w-full py-3 rounded-full bg-red-500/10 text-red-500 hover:bg-red-500/20 font-medium transition-colors"
+              >
+                Batalkan Unggahan
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+    </main>
   );
 }
 
@@ -299,4 +472,3 @@ export default function UploadPage() {
     </Suspense>
   );
 }
-

@@ -318,9 +318,16 @@ function ArchiveContent() {
       {viewerIndex !== null && filteredFiles[viewerIndex] && (
         <MediaViewer
           file={filteredFiles[viewerIndex]}
+          files={filteredFiles}
+          initialIndex={viewerIndex}
           onClose={() => setViewerIndex(null)}
           onNext={viewerIndex < filteredFiles.length - 1 ? () => setViewerIndex(viewerIndex + 1) : undefined}
           onPrev={viewerIndex > 0 ? () => setViewerIndex(viewerIndex - 1) : undefined}
+          onFileDeleted={(deletedId) => {
+            setFiles(prev => prev.filter(f => f.id !== deletedId));
+            // Trigger a background refetch to ensure source of truth is synced
+            
+          }}
         />
       )}
     </div>

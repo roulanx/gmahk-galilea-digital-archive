@@ -276,9 +276,14 @@ export default function Home() {
       {selectedFileIndex !== null && randomFiles[selectedFileIndex] && (
         <MediaViewer
           file={randomFiles[selectedFileIndex]}
+          files={randomFiles}
+          initialIndex={selectedFileIndex}
           onClose={() => setSelectedFileIndex(null)}
           onNext={selectedFileIndex < randomFiles.length - 1 ? () => setSelectedFileIndex(selectedFileIndex + 1) : undefined}
           onPrev={selectedFileIndex > 0 ? () => setSelectedFileIndex(selectedFileIndex - 1) : undefined}
+          onFileDeleted={(deletedId) => {
+            setRandomFiles(prev => prev.filter(f => f.id !== deletedId));
+          }}
         />
       )}
     </div>

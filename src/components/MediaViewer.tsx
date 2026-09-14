@@ -1,21 +1,10 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
+import { X, ChevronLeft, ChevronRight, ExternalLink, Trash2, FileText, FileSpreadsheet, Presentation, Video, Image as ImageIcon, AlertTriangle, Download, Share2 } from 'lucide-react';
 import { FileItem } from '@/lib/types';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
-import {
-  X,
-  ChevronLeft,
-  ChevronRight,
-  Trash2,
-  ExternalLink,
-  FileText,
-  Video,
-  Presentation,
-  FileSpreadsheet,
-  AlertTriangle,
-} from 'lucide-react';
 
 interface MediaViewerProps {
   file?: FileItem;
@@ -43,6 +32,8 @@ export default function MediaViewer({
   const [internalIndex, setInternalIndex] = useState(initialIndex);
   const [prevInitial, setPrevInitial] = useState(initialIndex);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState<number | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Sync index during render if initialIndex changed
@@ -74,10 +65,8 @@ export default function MediaViewer({
   }, [onPrev, hasFiles]);
 
   useEffect(() => {
-    if (!isOpen) return;
-
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (showDeleteConfirm) return; // Disable navigation when confirm is open
+      if (!isOpen) return;
       if (e.key === 'Escape') onClose();
       if (e.key === 'ArrowRight' && canGoNext) handleNext();
       if (e.key === 'ArrowLeft' && canGoPrev) handlePrev();
@@ -85,9 +74,121 @@ export default function MediaViewer({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, handleNext, handlePrev, onClose, showDeleteConfirm, canGoNext, canGoPrev]);
+  }, [isOpen, onClose, canGoNext, canGoPrev, handleNext, handlePrev]);
 
   if (!isOpen || !currentFile) return null;
+
+  const handleDownload = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isDownloading) return;
+
+    try {
+      setIsDownloading(true);
+      setDownloadProgress(0);
+
+      const response = await fetch(`/api/archive/download?fileId=${currentFile.id}`);
+      
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(errText || 'Gagal mengunduh berkas');
+      }
+
+      const contentLength = response.headers.get('Content-Length');
+      const total = contentLength ? parseInt(contentLength, 10) : 0;
+      
+      let loaded = 0;
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('ReadableStream tidak didukung browser ini.');
+
+      const chunks: Uint8Array[] = [];
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value) {
+          chunks.push(value);
+          loaded += value.length;
+          if (total > 0) {
+            setDownloadProgress(Math.round((loaded / total) * 100));
+          } else {
+            setDownloadProgress(loaded);
+          }
+        }
+      }
+
+      const blob = new Blob(chunks as any, { type: response.headers.get('Content-Type') || 'application/octet-stream' });
+      const url = window.URL.createObjectURL(blob);
+      
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let fileName = currentFile.name;
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename\*?=['"]?(?:UTF-8'')?([^;'"]+)/i);
+        if (filenameMatch && filenameMatch[1]) {
+          fileName = decodeURIComponent(filenameMatch[1]);
+        }
+      }
+
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
+      showToast({
+        type: 'success',
+        message: 'Unduhan Berhasil',
+        description: `"${fileName}" berhasil diunduh.`,
+      });
+    } catch (error: any) {
+      console.error('Download error:', error);
+      showToast({
+        type: 'error',
+        message: 'Unduhan Gagal',
+        description: error.message || 'Terjadi kesalahan saat mengunduh berkas.',
+      });
+    } finally {
+      setIsDownloading(false);
+      setDownloadProgress(null);
+    }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      showToast({
+        type: 'info',
+        message: 'Link Disalin',
+        description: 'Link berkas berhasil disalin.',
+      });
+    }).catch(() => {
+      showToast({
+        type: 'error',
+        message: 'Gagal Menyalin',
+        description: 'Tidak dapat menyalin link ke clipboard.',
+      });
+    });
+  };
+
+  const handleShare = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const shareUrl = window.location.href; 
+    
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: currentFile.name,
+          text: 'Lihat berkas GMAHK Galilea',
+          url: shareUrl,
+        });
+      } catch (err: any) {
+        if (err.name !== 'AbortError') {
+          copyToClipboard(shareUrl);
+        }
+      }
+    } else {
+      copyToClipboard(shareUrl);
+    }
+  };
 
   const handleDeleteClick = () => {
     if (role !== 'admin') {
@@ -125,11 +226,18 @@ export default function MediaViewer({
           message: 'Berkas Dipindahkan',
           description: `"${currentFile.name}" telah dipindahkan ke Sampah Google Drive.`,
         });
-        if (onFileDeleted) onFileDeleted(currentFile.id);
-        if (files && files.length > 1) {
-          handleNext();
+        if (onFileDeleted) {
+          onFileDeleted(currentFile.id);
         } else {
-          onClose();
+          if (hasFiles && files && files.length > 1) {
+            if (internalIndex < files.length - 1) {
+               handleNext();
+            } else {
+               handlePrev();
+            }
+          } else {
+            onClose();
+          }
         }
       } else {
         showToast({
@@ -158,7 +266,7 @@ export default function MediaViewer({
             {currentFile.thumbnailUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={currentFile.thumbnailUrl}
+                src={currentFile.thumbnailUrl.replace(/=s\d+/, '=s2048')}
                 alt={currentFile.name}
                 className="max-h-full max-w-full object-contain drop-shadow-2xl"
               />
@@ -173,10 +281,10 @@ export default function MediaViewer({
 
       case 'video':
         return (
-          <div className="w-full max-w-5xl max-h-[75vh] aspect-video bg-black rounded-2xl overflow-hidden flex items-center justify-center shadow-2xl">
+          <div className="w-full max-w-5xl h-[75vh] bg-black border border-white/10 rounded-2xl overflow-hidden shadow-2xl flex items-center justify-center">
             {currentFile.webViewLink ? (
               <iframe
-                src={`${currentFile.webViewLink.replace('/view', '/preview')}`}
+                src={currentFile.webViewLink.replace('/view', '/preview')}
                 className="w-full h-full border-0"
                 allow="autoplay"
               ></iframe>
@@ -193,7 +301,7 @@ export default function MediaViewer({
         return (
           <div className="w-full max-w-5xl h-[80vh] bg-black border border-white/10 rounded-2xl overflow-hidden shadow-2xl flex flex-col">
             <iframe
-              src={currentFile.webViewLink || `https://docs.google.com/viewer?url=${encodeURIComponent(currentFile.webContentLink || '')}&embedded=true`}
+              src={currentFile.webViewLink ? currentFile.webViewLink.replace('/view', '/preview') : `https://docs.google.com/viewer?url=${encodeURIComponent(currentFile.webContentLink || '')}&embedded=true`}
               className="w-full flex-1 border-0"
               title={currentFile.name}
             ></iframe>
@@ -216,18 +324,6 @@ export default function MediaViewer({
             <p className="text-sm text-white/60 mb-8 font-light">
               Dokumen ini dapat dibuka langsung di Google Drive atau diunduh ke perangkat Anda.
             </p>
-            <div className="flex items-center justify-center">
-              {currentFile.webViewLink && (
-                <a
-                  href={currentFile.webViewLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-6 py-3 rounded-full bg-white hover:bg-white/80 text-black text-sm font-medium transition-colors shadow-sm"
-                >
-                  <ExternalLink className="w-4 h-4" /> Buka di Drive
-                </a>
-              )}
-            </div>
           </div>
         );
     }
@@ -238,21 +334,42 @@ export default function MediaViewer({
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-xl"
       onClick={onClose}
     >
-      {/* Top Header Bar */}
-      <div 
-        className="absolute top-0 left-0 right-0 p-6 flex items-start justify-between text-white z-20 pointer-events-none"
-      >
+      <div className="absolute top-0 left-0 right-0 p-6 flex items-start justify-between text-white z-20 pointer-events-none">
         <div className="max-w-2xl">
-          {/* Spacing for alignment if needed */}
         </div>
+        <div className="flex flex-wrap items-center gap-3 ml-auto pointer-events-auto">
+          
+          <button
+            onClick={handleDownload}
+            disabled={isDownloading}
+            className="flex items-center justify-center h-11 px-4 gap-2 rounded-full bg-white text-black hover:bg-white/80 font-medium transition-colors"
+            title="Unduh"
+          >
+            <Download className="w-4 h-4" />
+            <span className="text-sm">
+              {isDownloading ? (
+                downloadProgress !== null && downloadProgress <= 100 
+                  ? `${downloadProgress}%` 
+                  : 'MENGUNDUH...'
+              ) : 'UNDUH'}
+            </span>
+          </button>
 
-        <div className="flex items-center gap-3 ml-auto pointer-events-auto">
+          <button
+            onClick={handleShare}
+            className="flex items-center justify-center h-11 px-4 gap-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+            title="Bagikan"
+          >
+            <Share2 className="w-4 h-4" />
+            <span className="text-sm hidden sm:inline">BAGIKAN</span>
+          </button>
+
           {currentFile.webViewLink && (
             <a
               href={currentFile.webViewLink}
               target="_blank"
               rel="noopener noreferrer"
-              className="p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+              className="flex items-center justify-center h-11 px-4 gap-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
               title="Buka di Google Drive"
             >
               <ExternalLink className="w-5 h-5" />
@@ -263,17 +380,17 @@ export default function MediaViewer({
             <button
               onClick={handleDeleteClick}
               disabled={isDeleting}
-              className="p-3 rounded-full bg-white/10 hover:bg-white hover:text-white text-white transition-colors"
+              className="flex items-center justify-center h-11 min-w-[2.75rem] px-3 rounded-full bg-white/10 hover:bg-red-500 hover:text-white text-white transition-colors"
               title="Pindahkan ke Sampah"
               aria-label="Pindahkan ke Sampah"
             >
-              <Trash2 className="w-5 h-5" />
+              {isDeleting ? <span className="text-sm px-2">MEMINDAHKAN...</span> : <Trash2 className="w-5 h-5" />}
             </button>
           )}
 
           <button
             onClick={onClose}
-            className="p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors ml-2"
+            className="flex items-center justify-center h-11 w-11 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors ml-2"
             title="Tutup"
             aria-label="Tutup"
           >
@@ -282,14 +399,12 @@ export default function MediaViewer({
         </div>
       </div>
 
-      {/* Main View Area */}
       <div 
         className="relative w-full h-full flex items-center justify-center p-8 pb-32"
         onClick={(e) => e.stopPropagation()}
       >
         {renderContent()}
 
-        {/* Previous Navigation */}
         {canGoPrev && (
           <button
             onClick={handlePrev}
@@ -300,7 +415,6 @@ export default function MediaViewer({
           </button>
         )}
 
-        {/* Next Navigation */}
         {canGoNext && (
           <button
             onClick={handleNext}
@@ -312,10 +426,7 @@ export default function MediaViewer({
         )}
       </div>
 
-      {/* Bottom Info Bar */}
-      <div 
-        className="absolute bottom-0 left-0 right-0 p-6 flex flex-col items-center justify-center z-10 pointer-events-none"
-      >
+      <div className="absolute bottom-0 left-0 right-0 p-6 flex flex-col items-center justify-center z-10 pointer-events-none">
         <div 
           className="bg-black/60 backdrop-blur-md px-8 py-5 rounded-2xl flex flex-col items-center max-w-3xl w-full text-center border border-white/10 shadow-2xl pointer-events-auto"
           onClick={(e) => e.stopPropagation()}
@@ -337,15 +448,12 @@ export default function MediaViewer({
         </div>
       </div>
 
-      {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
         <div 
           className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-md"
           onClick={(e) => e.stopPropagation()}
         >
-          <div 
-            className="bg-black border border-white/10 rounded-3xl p-8 max-w-sm w-full mx-4 shadow-2xl flex flex-col items-center text-center border border-white/10"
-          >
+          <div className="bg-black border border-white/10 rounded-3xl p-8 max-w-sm w-full mx-4 shadow-2xl flex flex-col items-center text-center">
             <div className="w-14 h-14 rounded-full bg-white/5 flex items-center justify-center mb-5 text-white">
               <AlertTriangle className="w-6 h-6" />
             </div>
@@ -373,4 +481,3 @@ export default function MediaViewer({
     </div>
   );
 }
-

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth-server';
-import { moveToTrash } from '@/lib/drive';
+import { moveToTrash, isFileInManagedArchive } from '@/lib/drive';
 import { logSystemEvent } from '@/lib/firestore';
 
 
