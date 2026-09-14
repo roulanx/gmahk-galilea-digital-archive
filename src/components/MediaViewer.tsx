@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { X, ChevronLeft, ChevronRight, ExternalLink, Trash2, FileText, FileSpreadsheet, Presentation, Video, Image as ImageIcon, AlertTriangle, Download, Share2 } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, ExternalLink, Trash2, FileText, FileSpreadsheet, Presentation, Video, AlertTriangle, Download, Share2 } from 'lucide-react';
 import { FileItem } from '@/lib/types';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
@@ -98,54 +98,40 @@ export default function MediaViewer({
       }
 
       const contentLength = response.headers.get('Content-Length');
-      const total = contentLength ? parseInt(contentLength, 10) : 0;
-      
-      let loaded = 0;
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error('ReadableStream tidak didukung browser ini.');
+      const total = contentLength ? parseInt(contentLength, 10) : null;
 
       const chunks: Uint8Array[] = [];
+      let received = 0;
+      const reader = response.body?.getReader();
+
+      if (!reader) throw new Error('Tidak dapat membaca respons server');
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        if (value) {
-          chunks.push(value);
-          loaded += value.length;
-          if (total > 0) {
-            setDownloadProgress(Math.round((loaded / total) * 100));
-          } else {
-            setDownloadProgress(loaded);
-          }
+        chunks.push(value);
+        received += value.length;
+        if (total) {
+          setDownloadProgress(Math.round((received / total) * 100));
         }
       }
 
-      const blob = new Blob(chunks as unknown as BlobPart[], { type: response.headers.get('Content-Type') || 'application/octet-stream' });
-      const url = window.URL.createObjectURL(blob);
-      
-      const contentDisposition = response.headers.get('Content-Disposition');
-      let fileName = currentFile.name;
-      if (contentDisposition) {
-        const filenameMatch = contentDisposition.match(/filename\*?=['"]?(?:UTF-8'')?([^;'"]+)/i);
-        if (filenameMatch && filenameMatch[1]) {
-          fileName = decodeURIComponent(filenameMatch[1]);
-        }
-      }
-
+      const blob = new Blob(chunks as BlobPart[]);
+      const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = fileName;
+      a.download = currentFile.name;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
+      URL.revokeObjectURL(url);
 
       showToast({
         type: 'success',
-        message: 'Unduhan Berhasil',
-        description: `"${fileName}" berhasil diunduh.`,
+        message: 'Unduhan Selesai',
+        description: `${currentFile.name} berhasil diunduh.`,
       });
-    } catch (error: unknown) {
-      console.error('Download error:', error);
+    } catch (error) {
       showToast({
         type: 'error',
         message: 'Unduhan Gagal',
@@ -333,28 +319,83 @@ export default function MediaViewer({
     }
   };
 
+  // ─── LAYER 1: Backdrop (click-to-close, no backdrop-filter on root) ──────────
+  // ─── LAYER 2: Content area (image/video/pdf) ─────────────────────────────────
+  // ─── LAYER 3: Action bar (separate fixed layer, ABOVE everything) ─────────────
+  //
+  // Root cause fix: backdrop-filter on the root div creates a compositing context
+  // that causes absolute-positioned children to render BELOW sibling divs that
+  // appear later in DOM order. Fix: separate the action bar into its own
+  // independent fixed layer at a higher z-index.
+
   return (
-    <div 
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-xl"
-      onClick={onClose}
-    >
-      <div className="absolute top-0 left-0 right-0 p-4 sm:p-6 flex items-start justify-between text-white z-50 pointer-events-none">
+    <>
+      {/* LAYER 1: Background / backdrop — click-to-close */}
+      <div
+        className="fixed inset-0 z-[200] bg-black/90 backdrop-blur-xl"
+        onClick={onClose}
+        aria-modal="true"
+        role="dialog"
+      />
+
+      {/* LAYER 2: Content area (above backdrop, stops click propagation) */}
+      <div
+        className="fixed inset-0 z-[210] flex items-center justify-center p-8 pb-32 pointer-events-none"
+      >
+        <div
+          className="pointer-events-auto"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {renderContent()}
+        </div>
+
+        {/* Previous / Next navigation arrows */}
+        {canGoPrev && (
+          <button
+            onClick={(e) => { e.stopPropagation(); handlePrev(); }}
+            className="fixed left-8 top-1/2 -translate-y-1/2 p-4 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors shadow-lg cursor-pointer z-[220]"
+            aria-label="Sebelumnya"
+          >
+            <ChevronLeft className="w-6 h-6" />
+          </button>
+        )}
+
+        {canGoNext && (
+          <button
+            onClick={(e) => { e.stopPropagation(); handleNext(); }}
+            className="fixed right-8 top-1/2 -translate-y-1/2 p-4 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors shadow-lg cursor-pointer z-[220]"
+            aria-label="Selanjutnya"
+          >
+            <ChevronRight className="w-6 h-6" />
+          </button>
+        )}
+      </div>
+
+      {/* LAYER 3: Action bar — topmost fixed layer, completely independent stacking context */}
+      <div
+        className="fixed inset-x-0 top-0 z-[230] p-4 sm:p-6 flex items-start justify-between text-white pointer-events-none"
+        data-testid="media-action-bar"
+      >
+        {/* Left spacer */}
         <div className="max-w-2xl">
           <div className="hidden" data-testid="marker-galilea">[GALILEA MEDIA VIEWER 4E861B]</div>
         </div>
+
+        {/* Right: action buttons */}
         <div className="flex flex-wrap items-center gap-2 sm:gap-3 ml-auto pointer-events-auto">
-          
+
           <button
             onClick={handleDownload}
             disabled={isDownloading}
-            className="flex items-center justify-center h-10 sm:h-11 px-3 sm:px-4 gap-2 rounded-full bg-white text-black hover:bg-white/80 font-medium transition-colors"
+            data-testid="media-download"
+            className="flex items-center justify-center h-10 sm:h-11 px-3 sm:px-4 gap-2 rounded-full bg-white text-black hover:bg-white/80 font-medium transition-colors shadow-md"
             title="Unduh"
           >
             <Download className="w-4 h-4" />
             <span className="text-sm font-semibold">
               {isDownloading ? (
-                downloadProgress !== null && downloadProgress <= 100 
-                  ? `${downloadProgress}%` 
+                downloadProgress !== null && downloadProgress <= 100
+                  ? `${downloadProgress}%`
                   : 'MENGUNDUH...'
               ) : 'UNDUH'}
             </span>
@@ -362,7 +403,8 @@ export default function MediaViewer({
 
           <button
             onClick={handleShare}
-            className="flex items-center justify-center h-10 sm:h-11 px-3 sm:px-4 gap-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+            data-testid="media-share"
+            className="flex items-center justify-center h-10 sm:h-11 px-3 sm:px-4 gap-2 rounded-full bg-white/20 hover:bg-white/30 text-white transition-colors shadow-md border border-white/20"
             title="Bagikan"
           >
             <Share2 className="w-4 h-4" />
@@ -374,8 +416,10 @@ export default function MediaViewer({
               href={currentFile.webViewLink}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center h-11 px-4 gap-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+              data-testid="media-drive"
+              className="flex items-center justify-center h-10 sm:h-11 px-3 sm:px-4 gap-2 rounded-full bg-white/20 hover:bg-white/30 text-white transition-colors shadow-md border border-white/20"
               title="Buka di Google Drive"
+              onClick={(e) => e.stopPropagation()}
             >
               <ExternalLink className="w-5 h-5" />
             </a>
@@ -385,7 +429,8 @@ export default function MediaViewer({
             <button
               onClick={handleDeleteClick}
               disabled={isDeleting}
-              className="flex items-center justify-center h-11 min-w-[2.75rem] px-3 rounded-full bg-white/10 hover:bg-red-500 hover:text-white text-white transition-colors"
+              data-testid="media-delete"
+              className="flex items-center justify-center h-10 sm:h-11 min-w-[2.75rem] px-3 rounded-full bg-white/20 hover:bg-red-500 hover:text-white text-white transition-colors shadow-md border border-white/20"
               title="Pindahkan ke Sampah"
               aria-label="Pindahkan ke Sampah"
             >
@@ -395,7 +440,8 @@ export default function MediaViewer({
 
           <button
             onClick={onClose}
-            className="flex items-center justify-center h-11 w-11 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors ml-2"
+            data-testid="media-close"
+            className="flex items-center justify-center h-10 sm:h-11 w-10 sm:w-11 rounded-full bg-white/20 hover:bg-white/30 text-white transition-colors ml-2 shadow-md border border-white/20"
             title="Tutup"
             aria-label="Tutup"
           >
@@ -404,35 +450,9 @@ export default function MediaViewer({
         </div>
       </div>
 
-      <div 
-        className="relative w-full h-full flex items-center justify-center p-8 pb-32"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {renderContent()}
-
-        {canGoPrev && (
-          <button
-            onClick={handlePrev}
-            className="absolute left-8 top-1/2 -translate-y-1/2 p-4 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors shadow-lg cursor-pointer"
-            aria-label="Sebelumnya"
-          >
-            <ChevronLeft className="w-6 h-6" />
-          </button>
-        )}
-
-        {canGoNext && (
-          <button
-            onClick={handleNext}
-            className="absolute right-8 top-1/2 -translate-y-1/2 p-4 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors shadow-lg cursor-pointer"
-            aria-label="Selanjutnya"
-          >
-            <ChevronRight className="w-6 h-6" />
-          </button>
-        )}
-      </div>
-
-      <div className="absolute bottom-0 left-0 right-0 p-6 flex flex-col items-center justify-center z-10 pointer-events-none">
-        <div 
+      {/* LAYER 4: Bottom info bar */}
+      <div className="fixed inset-x-0 bottom-0 z-[220] p-6 flex flex-col items-center justify-center pointer-events-none">
+        <div
           className="bg-black/60 backdrop-blur-md px-8 py-5 rounded-2xl flex flex-col items-center max-w-3xl w-full text-center border border-white/10 shadow-2xl pointer-events-auto"
           onClick={(e) => e.stopPropagation()}
         >
@@ -453,9 +473,10 @@ export default function MediaViewer({
         </div>
       </div>
 
+      {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
-        <div 
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-md"
+        <div
+          className="fixed inset-0 z-[250] flex items-center justify-center bg-black/70 backdrop-blur-md"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="bg-black border border-white/10 rounded-3xl p-8 max-w-sm w-full mx-4 shadow-2xl flex flex-col items-center text-center">
@@ -483,9 +504,6 @@ export default function MediaViewer({
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
-
-
-
