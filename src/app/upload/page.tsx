@@ -235,6 +235,11 @@ function UploadContent() {
     setUploadActive(true);
   };
 
+  const handleRetryAll = () => {
+    setQueue(prev => prev.map(q => q.status === 'ERROR' ? { ...q, status: 'WAITING', progress: 0, error: undefined } : q));
+    setUploadActive(true);
+  };
+
   const handleCancelAll = () => {
     queue.forEach(item => {
       if (item.xhr && item.status === 'UPLOADING') {
@@ -392,14 +397,24 @@ function UploadContent() {
                   </div>
                 </div>
               ) : (
-                waitingFiles > 0 && (
-                  <button
-                    onClick={handleStartUploads}
-                    className="bg-white text-black px-6 py-2 rounded-full font-medium text-sm hover:bg-white/80 transition-colors"
-                  >
-                    MULAI UNGGAH
-                  </button>
-                )
+                <div className="flex gap-2">
+                  {errorFiles > 0 && (
+                    <button
+                      onClick={handleRetryAll}
+                      className="bg-white/10 text-white px-6 py-2 rounded-full font-medium text-sm hover:bg-white/20 transition-colors"
+                    >
+                      COBA LAGI SEMUA
+                    </button>
+                  )}
+                  {waitingFiles > 0 && (
+                    <button
+                      onClick={handleStartUploads}
+                      className="bg-white text-black px-6 py-2 rounded-full font-medium text-sm hover:bg-white/80 transition-colors"
+                    >
+                      MULAI UNGGAH
+                    </button>
+                  )}
+                </div>
               )}
             </div>
 
