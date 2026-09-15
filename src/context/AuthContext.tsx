@@ -33,7 +33,6 @@ const AuthContext = createContext<AuthContextType>({
 });
 
 const SUPER_ADMIN_EMAILS = [
-  'simatupangkevin9@gmail.com',
   'admin@gmahk-galilea.org',
   (process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL || '').toLowerCase().trim(),
 ].filter(Boolean);

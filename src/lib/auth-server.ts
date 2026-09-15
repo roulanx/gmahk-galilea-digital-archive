@@ -10,7 +10,6 @@ export interface AuthSession {
 }
 
 const SUPER_ADMIN_EMAILS = [
-  'simatupangkevin9@gmail.com',
   'admin@gmahk-galilea.org',
   (process.env.SUPER_ADMIN_EMAIL || '').toLowerCase().trim(),
 ].filter(Boolean);

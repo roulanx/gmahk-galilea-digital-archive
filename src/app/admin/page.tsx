@@ -204,7 +204,7 @@ export default function AdminPage() {
         <ShieldAlert className="w-16 h-16 text-white/20 mb-8" />
         <h1 className="editorial-title uppercase">AKSES DITOLAK</h1>
         <p className="editorial-desc mt-6 max-w-md">
-          Akun <span className="text-white font-medium">{user.email}</span> terdaftar sebagai Viewer. Hubungi Super Admin (simatupangkevin9@gmail.com) untuk meminta hak akses Administrator.
+          Akun <span className="text-white font-medium">{user.email}</span> terdaftar sebagai Viewer. Hubungi Super Admin (admin@gmahk-galilea.org) untuk meminta hak akses Administrator.
         </p>
         <div className="mt-10 flex flex-col sm:flex-row gap-4">
           <Link href="/" className="editorial-button-secondary">
