@@ -209,3 +209,16 @@ The project is configured for seamless deployment on [Vercel](https://vercel.com
 - **Server-Side Authorization:** Admin endpoints (`/api/admin/*`) require cryptographically verified Firebase ID tokens and reject arbitrary client-side role headers.
 - **Token Freshness:** Expired tokens are caught gracefully, preventing upload batches from silently failing without clear user notifications.
 - **Zero Secret Exposure:** Server-side Google OAuth tokens, service accounts, and refresh tokens are strictly kept on the server side and never sent to the browser.
+
+---
+
+## 12. Additional Documentation
+
+Detailed technical architecture and setup manuals are organized in the [`docs/`](./docs) directory:
+
+- [Architecture Guide](./docs/ARCHITECTURE.md) - Deep dive into system design, authentication flow, and data pipelines.
+- [Google Setup Guide](./docs/GOOGLE_SETUP.md) - Google Cloud Console OAuth 2.0 and Service Account configuration.
+- [Project Handoff Manual](./docs/GMAHK_DIGITAL_ARCHIVE_HANDOFF.md) - Operational handoff and administration procedures.
+- [Implementation Plan](./docs/IMPLEMENTATION_PLAN.md) - Development roadmap and architectural decisions.
+- [Walkthrough](./docs/walkthrough.md) - Verification walkthrough and audit notes.
+
