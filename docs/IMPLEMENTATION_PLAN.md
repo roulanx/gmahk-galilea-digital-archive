@@ -9,7 +9,7 @@ Lanjutan pengerjaan project **GMAHK Galilea Digital Archive** pada environment P
 - pnpm: 12.3.4
 - Firebase CLI: 15.29.0
 - Vercel CLI: 59.11.7
-- Repository GitHub: `roulanx/gmahk-galilea-digital-archive` (Private, Branch: `master`, Commit: `b266037`)
+- Repository GitHub: `zvenians/gmahk-galilea-digital-archive` (Branch: `main`, Initial Baseline: `b266037`)
 - Baseline Lint & Build: Sukses (0 error)
 
 ## Tahapan Implementasi

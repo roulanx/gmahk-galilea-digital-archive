@@ -17,8 +17,22 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://drive-galilea.vercel.app'),
   title: 'Dokumentasi Digital Galilea',
   description: 'Dokumentasi dan berkas pelayanan GMAHK Galilea.',
+  openGraph: {
+    title: 'Dokumentasi Digital Galilea',
+    description: 'Dokumentasi dan berkas pelayanan GMAHK Galilea.',
+    url: 'https://drive-galilea.vercel.app',
+    siteName: 'Dokumentasi Digital Galilea',
+    locale: 'id_ID',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'Dokumentasi Digital Galilea',
+    description: 'Dokumentasi dan berkas pelayanan GMAHK Galilea.',
+  },
 };
 
 export default function RootLayout({

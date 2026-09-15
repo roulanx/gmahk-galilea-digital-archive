@@ -2,8 +2,8 @@
 
 ## 1. Project Context
 - **Name**: GMAHK Galilea Digital Archive
-- **Repository**: `roulanx/gmahk-galilea-digital-archive` (Private)
-- **Branch**: `master`
+- **Repository**: `zvenians/gmahk-galilea-digital-archive` (Public)
+- **Branch**: `main`
 - **Initial Baseline Commit**: `b266037` (feat: initialize archive application)
 - **Firebase Project**: `gmahk-galilea-archive`
 
@@ -33,4 +33,4 @@
 
 ## 4. Pending Authorizations
 1. **Firebase CLI**: Otorisasi Google account pemilik project `gmahk-galilea-archive`.
-2. **Vercel CLI**: Otorisasi akun Vercel untuk menghubungkan deployment repository `roulanx/gmahk-galilea-digital-archive`.
+2. **Vercel CLI**: Otorisasi akun Vercel untuk menghubungkan deployment repository `zvenians/gmahk-galilea-digital-archive`.
