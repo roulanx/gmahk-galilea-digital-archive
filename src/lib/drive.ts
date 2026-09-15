@@ -709,11 +709,13 @@ export async function discoverArchiveTree(
       }
     }
     let files: FileItem[] = [];
-    try {
-      const { getFilesBySabbath } = await import('./firestore');
-      files = await getFilesBySabbath(activeSabbath, targetCategory);
-    } catch {
-      files = [];
+    if (process.env.NODE_ENV !== 'test') {
+      try {
+        const { getFilesBySabbath } = await import('./firestore');
+        files = await getFilesBySabbath(activeSabbath, targetCategory);
+      } catch {
+        files = [];
+      }
     }
     return {
       availableYears,
@@ -997,11 +999,13 @@ export async function discoverArchiveTree(
 
   // Merge with Firestore if indexed
   let firestoreFiles: FileItem[] = [];
-  try {
-    const { getFilesBySabbath } = await import('./firestore');
-    firestoreFiles = await getFilesBySabbath(activeSabbath, targetCategory);
-  } catch {
-    firestoreFiles = [];
+  if (process.env.NODE_ENV !== 'test') {
+    try {
+      const { getFilesBySabbath } = await import('./firestore');
+      firestoreFiles = await getFilesBySabbath(activeSabbath, targetCategory);
+    } catch {
+      firestoreFiles = [];
+    }
   }
 
   const fileMap = new Map<string, FileItem>();
