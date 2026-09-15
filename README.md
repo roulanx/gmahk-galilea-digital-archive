@@ -1,16 +1,82 @@
 # GMAHK Galilea Digital Archive
 
-A secure, high-performance digital repository and media management archive built for the GMAHK Galilea congregation. This platform permanently organizes worship bulletins, liturgy documents, photos, and videos chronologically by Year, Quarter, and weekly Sabbath (Saturday, WITA timezone) directly within a managed Google Drive hierarchy, augmented by Firebase Firestore metadata indexing.
+> A secure, high-performance digital repository and media management archive built for the GMAHK Galilea congregation.
+
+[![Status](https://img.shields.io/badge/Status-Production-brightgreen?style=flat-square)](#)
+[![Live Demo](https://img.shields.io/badge/Live_Demo-drive--galilea.vercel.app-blue?style=flat-square&logo=vercel)](https://drive-galilea.vercel.app)
+[![Framework](https://img.shields.io/badge/Framework-Next.js_16_(App_Router)-black?style=flat-square&logo=nextdotjs)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/Language-TypeScript_5-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Cloud Storage](https://img.shields.io/badge/Storage-Google_Drive_API_v3-4285F4?style=flat-square&logo=googledrive&logoColor=white)](https://developers.google.com/drive)
+[![Database](https://img.shields.io/badge/Database-Firebase_Firestore-FFCA28?style=flat-square&logo=firebase&logoColor=black)](https://firebase.google.com/)
 
 ---
 
 ## 1. Project Overview
 
-The **GMAHK Galilea Digital Archive** serves as the central visual and liturgical repository for church services. It ensures that weekly worship records and ministry photos are safely stored, easily browsable by congregation members, and strictly safeguarded against accidental deletion or unauthorized modifications.
+The **GMAHK Galilea Digital Archive** serves as the central visual and liturgical repository for church services. It ensures that weekly worship records, liturgy bulletins, choir audio, and ministry photos are permanently organized, easily accessible to congregation members, and strictly safeguarded against accidental deletion or unauthorized modifications.
 
 ---
 
-## 2. Key Features
+## 2. Problem & Solution
+
+### The Problem
+In church administration and media ministries, weekly worship assets (bulletin PDFs, liturgy slides, sermon notes, event photos, and audio recordings) are commonly exchanged across unorganized messaging threads and personal flash drives. Over time:
+* **Assets are lost or scattered:** Historical bulletins and liturgy files become impossible to find across different quarters and years.
+* **Storage risk:** Granting multiple church volunteers direct administrative access to a shared Google Drive risks accidental deletion, out-of-boundary file movement, and exposure of personal account files.
+* **Bandwidth & quota constraints:** Browsing deep cloud folder trees directly through public Drive links triggers heavy API quota consumption and poor mobile performance.
+
+### The Solution
+**GMAHK Galilea Digital Archive** provides a dedicated, high-performance web custody layer over Google Drive API v3 and Firebase Firestore:
+1. **Strict Folder Boundary Enforcement:** All read, upload, and trash operations are cryptographically and programmatically bounded to designated church parent folders (`Dokumentasi` and `File Ibadah`). Personal or out-of-scope files on the connected Google account cannot be read or traversed.
+2. **Dynamic Sabbath-Centric Navigation:** A custom timezone engine calculates weekly Sabbath dates (`Asia/Makassar` / WITA UTC+8), automatically creating and organizing folder structures by Year (`2026`), Quarter (`Triwulan I - IV`), and date (`12 September 2026`).
+3. **Resilient Upload Queue:** Client-side XHR queue with genuine byte-level upload progress (`loaded / total`), concurrency limiting (max 3 concurrent uploads), duplicate name protection, and anti-page-unload guards.
+4. **Serverless In-Memory Caching:** High-efficiency TTL caching layer reduces redundant Google Drive API roundtrips by up to 90%, ensuring lightning-fast folder navigation.
+
+---
+
+## 3. Architecture & Data Flow
+
+```mermaid
+flowchart TD
+    subgraph Client ["Client Browser (Next.js 16 / React 19 / Tailwind CSS 4)"]
+        UI["Congregation Web UI (/)"]
+        Viewer["Media Viewer & Document Browser (/archive)"]
+        Queue["Universal XHR Multi-Upload Queue (/upload)"]
+        AdminUI["Admin Dashboard & Audit Logs (/admin)"]
+    end
+
+    subgraph VercelRuntime ["Vercel Serverless Runtime (Edge & Node.js)"]
+        Router["App Router Server Handlers (/api/*)"]
+        BoundaryCheck["Strict Drive Boundary Enforcement"]
+        TTLCache[("In-Memory TTL Cache (Folder IDs & Trees)")]
+        SabbathEngine["Sabbath & Quarter Engine (WITA / UTC+8)"]
+        AuthServer["Firebase ID Token Verification"]
+    end
+
+    subgraph CloudServices ["Cloud Storage & Database Layer"]
+        GoogleDrive["Google Drive API v3 (Ground Truth Binary Storage)"]
+        Firestore[("Firebase Firestore (Metadata, Indexing, Audit)")]
+        FirebaseAuth["Firebase Authentication (Superadmin Access)"]
+    end
+
+    UI --> Router
+    Viewer --> Router
+    Queue --> Router
+    AdminUI --> Router
+
+    Router --> TTLCache
+    Router --> SabbathEngine
+    Router --> BoundaryCheck
+    Router --> AuthServer
+
+    BoundaryCheck -->|Scoped Operations Only| GoogleDrive
+    Router --> Firestore
+    AuthServer --> FirebaseAuth
+```
+
+---
+
+## 4. Key Features
 
 - **Dynamic Archive Tree Discovery:** Automatically reads and parses directory structures in Google Drive by Year (`2026`), Quarter (`Triwulan I - IV`), and Indonesian Sabbath dates (`12 September 2026`).
 - **Sabbath Calculation Engine (WITA / UTC+8):** Automatically determines the active, nearest, and upcoming Sabbath dates in Makassar local time (`Asia/Makassar`), guaranteeing dynamic quarter navigation.
@@ -29,7 +95,7 @@ The **GMAHK Galilea Digital Archive** serves as the central visual and liturgica
 
 ---
 
-## 3. Technology Stack
+## 5. Technology Stack
 
 - **Framework:** [Next.js 16.3](https://nextjs.org/) (App Router, Turbopack)
 - **Language:** [TypeScript 5](https://www.typescriptlang.org/)
@@ -40,28 +106,7 @@ The **GMAHK Galilea Digital Archive** serves as the central visual and liturgica
 
 ---
 
-## 4. Architecture Overview
-
-```
-Client (Browser)
-   │
-   ├─► / (Homepage: Random Showcase & Active Sabbath)
-   ├─► /archive (Gallery & Document Browser with Date/Quarter Tree)
-   ├─► /upload (Universal XHR Multi-Upload Queue)
-   └─► /admin (Dashboard & Activity Audit Logs)
-          │
-          ▼
-Next.js App Router (Server-Side Route Handlers)
-   │
-   ├─► In-Memory TTL Cache (Folder IDs & Archive Tree Results)
-   ├─► Server-Side Boundary Validation (Strict GMAHK Galilea Root)
-   ├─► Google Drive API v3 (Ground Truth File Storage)
-   └─► Firebase Firestore & Admin Auth (Metadata & Role Verification)
-```
-
----
-
-## 5. Folder Structure
+## 6. Project Structure
 
 ```
 .
@@ -103,7 +148,7 @@ Next.js App Router (Server-Side Route Handlers)
 
 ---
 
-## 6. Local Development
+## 7. Local Development
 
 ### Prerequisites
 
@@ -116,7 +161,7 @@ Next.js App Router (Server-Side Route Handlers)
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/roulanx/gmahk-galilea-digital-archive.git
+   git clone https://github.com/zvenians/gmahk-galilea-digital-archive.git
    cd gmahk-galilea-digital-archive
    ```
 
@@ -139,7 +184,7 @@ Next.js App Router (Server-Side Route Handlers)
 
 ---
 
-## 7. Environment Variables
+## 8. Environment Variables
 
 The application requires the following environment variables (defined in `.env.local` for local development or configured in Vercel project settings):
 
@@ -164,7 +209,7 @@ The application requires the following environment variables (defined in `.env.l
 
 ---
 
-## 8. Testing
+## 9. Testing
 
 The project includes an automated test suite verifying security boundaries, Sabbath calculations, error classifications, and Drive integration:
 
@@ -179,7 +224,7 @@ npm run lint
 
 ---
 
-## 9. Production Build
+## 10. Production Build
 
 To test the production build locally:
 
@@ -190,7 +235,7 @@ npm run start
 
 ---
 
-## 10. Deployment
+## 11. Deployment
 
 The project is configured for seamless deployment on [Vercel](https://vercel.com):
 
@@ -203,7 +248,7 @@ The project is configured for seamless deployment on [Vercel](https://vercel.com
 
 ---
 
-## 11. Security Notes
+## 12. Security Notes
 
 - **Archive Boundary Enforcement:** All download, upload, and trash operations strictly validate that the target file resides within the managed `GMAHK Galilea` folder tree (`Dokumentasi` or `File Ibadah`). Personal files on the connected Google account are inaccessible.
 - **Server-Side Authorization:** Admin endpoints (`/api/admin/*`) require cryptographically verified Firebase ID tokens and reject arbitrary client-side role headers.
@@ -212,7 +257,7 @@ The project is configured for seamless deployment on [Vercel](https://vercel.com
 
 ---
 
-## 12. Additional Documentation
+## 13. Additional Documentation
 
 Detailed technical architecture and setup manuals are organized in the [`docs/`](./docs) directory:
 
