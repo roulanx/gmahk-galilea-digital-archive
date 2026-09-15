@@ -3,6 +3,7 @@
 > A secure, high-performance digital repository and media management archive built for the GMAHK Galilea congregation.
 
 [![Status](https://img.shields.io/badge/Status-Production-brightgreen?style=flat-square)](#)
+[![CI](https://github.com/zvenians/gmahk-galilea-digital-archive/actions/workflows/ci.yml/badge.svg)](https://github.com/zvenians/gmahk-galilea-digital-archive/actions/workflows/ci.yml)
 [![Live Demo](https://img.shields.io/badge/Live_Demo-drive--galilea.vercel.app-blue?style=flat-square&logo=vercel)](https://drive-galilea.vercel.app)
 [![Framework](https://img.shields.io/badge/Framework-Next.js_16_(App_Router)-black?style=flat-square&logo=nextdotjs)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/Language-TypeScript_5-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
@@ -266,4 +267,19 @@ Detailed technical architecture and setup manuals are organized in the [`docs/`]
 - [Project Handoff Manual](./docs/GMAHK_DIGITAL_ARCHIVE_HANDOFF.md) - Operational handoff and administration procedures.
 - [Implementation Plan](./docs/IMPLEMENTATION_PLAN.md) - Development roadmap and architectural decisions.
 - [Walkthrough](./docs/walkthrough.md) - Verification walkthrough and audit notes.
+
+---
+
+## 14. Development & CI Workflow
+
+The repository employs automated continuous integration (CI) via GitHub Actions to maintain reliability:
+
+```text
+Local Branch ──► Pull Request ──► GitHub Actions CI (Lint, Test, Build) ──► Merge to main ──► Vercel Production
+```
+
+- **Local Verification:** Run `npm run lint`, `npm run test`, and `npm run build` before pushing.
+- **Automated Gating:** Every push and pull request to `main` triggers automated verification executing ESLint 9, unit tests, and production build checks.
+- **Production Delivery:** Merges to `main` automatically trigger continuous deployment on Vercel.
+
 
