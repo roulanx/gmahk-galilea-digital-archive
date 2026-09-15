@@ -162,7 +162,7 @@ export function getGoogleDriveClient() {
   // 2. Secondary: Explicit Service Account (only if explicitly set in environment)
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL?.trim();
   let privateKey = process.env.FIREBASE_PRIVATE_KEY?.trim();
-  if (clientEmail && privateKey) {
+  if (clientEmail && privateKey && !privateKey.includes('YOUR_KEY_HERE')) {
     privateKey = privateKey.replace(/\\n/g, '\n');
     const auth = new google.auth.JWT({
       email: clientEmail,
